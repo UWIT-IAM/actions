@@ -1,0 +1,52 @@
+name: "Update Slack workflow canvas"
+
+inputs:
+  command:
+    required: true
+    description: >
+      One of `initialize-workflow`, `initialize-step`, `update-workflow`
+  channel:
+    required: false
+    description: >
+      Required when command is `initialize-workflow`; the channel to send message to.
+  description:
+    required: false
+    description: Required if command is `initialize-workflow` or
+      `initialize-step`. A description of the workflow or step.
+  workflow-status:
+    required: false
+    description: >
+      If set, will update the overall workflow status. Can be set with any
+      command. One of the statuses: `initializing`, `in_progress`, `succeeded`,
+      `failed`.
+  step-status:
+    required: false
+    description: >
+      Permitted if command is `initialize-step` or `update-workflow`,
+      otherwise ignored. One of the statuses: `not started`, `in progress`,
+      `skipped`, `succeeded`, `failed`
+  step-id:
+    required: false
+    description: >
+      Permitted with `initialize-step` and `update-workflow`; if provided, will allow you
+      to update the step at a later time, even if it is not the current step. If
+      not provided, the last-appended step will always be the target. Therefore,
+      this is most useful if you have parts of your workflow that run concurrently.
+  context:
+    required: false
+    description: >
+      Required if the command is not `initialize-workflow`. This must be a
+      base64-encoded token output from a previous step. A new context
+      is always output from this action.
+
+runs:
+  using: docker
+  image: gcr.io/uwit-mci-iam/update-slack-workflow-status-action
+  env:
+    ACTION_COMMAND: ${{ inputs.command }}
+    ACTION_CHANNEL: ${{ inputs.channel }}
+    ACTION_DESCRIPTION: ${{ inputs.description }}
+    ACTION_WF_STATUS: ${{ inputs.workflow-status }}
+    ACTION_STEP_STATUS: ${{ inputs.step-status }}
+    ACTION_STEP_ID: ${{ inputs.step-id }}
+    ACTION_CONTEXT: ${{ inputs.context }}
