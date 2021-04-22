@@ -17,7 +17,7 @@ env:
   ACTION_DIR: update-slack-workflow-canvas
   GCR_TOKEN: ${{ secrets.GCR_TOKEN }}
   SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
-  ACTION_CHANNEL: "#tom-integration-sandbox"
+  ACTION_CHANNEL: "#iam-bots"
   IMAGE_REPO: gcr.io/${{ secrets.IAM_GCR_REPO }}/update-slack-workflow-canvas-action
   SLACK_CANVAS_ID: "${{ github.run_id }}.${{ github.run_number }}"
 
@@ -76,7 +76,9 @@ jobs:
           ACTION_DESCRIPTION: >
             *Commit*
             <${{ steps.create-vars.outputs.commit-url }}
-            | ${{ steps.create-vars.outputs.short-sha }}>
+            | ${{ steps.create-vars.outputs.short-sha }}>,
+            *Author* <https://github.com/${{ github.actor }}**
+            | @${{ github.actor }}>
         run: $ACTION_DIR/run-from-env.sh
       - env:
           ACTION_COMMAND: update-workflow
