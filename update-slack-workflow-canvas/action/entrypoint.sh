@@ -34,13 +34,12 @@ function add-arg-if-exists() {
 #   CANVAS_ID=12345 ACTION_CANVAS="use_env(CANVAS_ID)" ./entrypoint.sh
 function get_value_from_arg() {
   provided_value="$@"
-  if [[ -n $(echo $provided_value | grep '^use_env') ]]
-  then
-    env_var=$(echo $provided_value | sed 's/^use_env(\(.*\))$/\1/')
-    echo "${!env_var}"
-  else
-    echo "$provided_value"
-  fi
+   if [[ $provided_value =~ ^use_env\((.*)\)$ ]]
+   then
+       echo "${!BASH_REMATCH[1]}"
+   else
+       echo "$provided_value"
+   fi
 }
 
 case "$ACTION_COMMAND" in

@@ -7,18 +7,25 @@ name: Dogfood test and release process for the slack workflow canvas.
 on:
   push:
     branches:
-      # Any branch beginning with update-slack-workflow-canvas will automatically
-      # trigger the testing workflow
+      # Anyone with write access can create a preview branch which will
+      # run this workflow. This can be used to validate workflows from pull requests,
+      # after reviewing there is nothing malicious in the inbound request.
       - update-slack-workflow-canvas*
-      - develop  # This branch is used to test the release part of the workflow
-      - main  # This branch actually tags a new release image
+      # Pushing to 'main' will update the @release version.
+      # Due to the complexity of creating "preview" releases (currently),
+      # this requires manual action from someone with push access to the
+      # repository.
+      # Since 'main' is a protected branch, we should not have any security
+      # concerns with releasing here. (However, as this is a public repo,
+      # we should -not- automatically build preview branches for all
+      # pull requests).
+      - main
 
 env:
   ACTION_DIR: update-slack-workflow-canvas
-  GCR_TOKEN: ${{ secrets.GCR_TOKEN }}
   SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
   ACTION_CHANNEL: "#iam-bots"
-  IMAGE_REPO: gcr.io/${{ secrets.IAM_GCR_REPO }}/update-slack-workflow-canvas-action
+  GHCR_IMAGE_REPO: ghcr.io/uwit-iam/update-slack-workflow-canvas-action
   SLACK_CANVAS_ID: "${{ github.run_id }}.${{ github.run_number }}"
 
 jobs:
@@ -28,16 +35,20 @@ jobs:
       - uses: actions/checkout@main
       - uses: google-github-actions/setup-gcloud@master
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ secrets.IAM_GCR_REPO }}
           service_account_key: ${{ secrets.GCR_TOKEN }}
           export_default_credentials: true
-          credentials_file_path: /tmp/google.json
-      - run: gcloud auth configure-docker
+      - uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - id: create-vars
+        name: Creating workflow variables
         env:
           FINGERPRINT: ${{ hashFiles(env.ACTION_DIR) }}
           SHA: ${{ github.sha }}
-          COMMIT_URL_BASE: https://github.com/uwit-iam/actions/commit
+          COMMIT_URL_BASE: https://github.com/${{ github.repository }}/commit
         run: |
           export SHORT_SHA=${SHA:0:9}
           test -n "${SHORT_SHA}" || exit 1
@@ -45,19 +56,21 @@ jobs:
           echo "::set-output name=fingerprint::${FINGERPRINT:0:16}"
           echo "::set-output name=short-sha::$SHORT_SHA"
           echo "::set-output name=commit-url::$COMMIT_URL_BASE/$SHA"
-      - run: |
-          docker pull $IMAGE_REPO
+      - name: Pull base image and rebuild action
+        run: |
           docker build \
             --build-arg FINGERPRINT \
             -t action -f $ACTION_DIR/Dockerfile \
             ./$ACTION_DIR
         env:
           FINGERPRINT: ${{ steps.create-vars.outputs.fingerprint }}
-      - env:
+      - name: Create slack workflow canvas
+        env:
           ACTION_COMMAND: create-canvas
           ACTION_DESCRIPTION: "Push and test the slack workflow canvas action"
         run: ./$ACTION_DIR/run-from-env.sh
-      - env:
+      - name: 'Create step in slack canvas & generate step id'
+        env:
           ACTION_COMMAND: create-step
           ACTION_WF_STATUS: in progress
           ACTION_DESCRIPTION: >
@@ -66,55 +79,72 @@ jobs:
             ${{ steps.create-vars.outputs.short-sha }}>
         id: named-step-test
         run: $ACTION_DIR/run-from-env.sh
-      - env:
+      - name: 'Create step in slack canvas with id: push-action-image'
+        env:
           ACTION_COMMAND: create-step
           ACTION_DESCRIPTION: Push action image for commit
           ACTION_STEP_ID: push-action-image
         run: $ACTION_DIR/run-from-env.sh
-      - env:
+      - if: github.ref == 'refs/heads/main'
+        name: 'Create step in slack canvas with id: prepare-for-release'
+        env:
+          ACTION_COMMAND: create-step
+          ACTION_DESCRIPTION: Prepare image for release
+          ACTION_STEP_ID: prepare-for-release
+        run: $ACTION_DIR/run-from-env.sh
+      - name: 'Add change context artifact to canvas'
+        env:
           ACTION_COMMAND: add-artifact
-          ACTION_DESCRIPTION: >
+        run: |
+          BRANCH=$(basename ${{ github.ref }})
+          export ACTION_DESCRIPTION=$(cat << EOF
             *Commit*
             <${{ steps.create-vars.outputs.commit-url }}
             | ${{ steps.create-vars.outputs.short-sha }}>,
-            *Author* <https://github.com/${{ github.actor }}**
+            *Target Branch* <https://github.com/uwit-iam/actions/tree/$BRANCH
+            | $BRANCH>,
+            *Author* <https://github.com/${{ github.actor }}
             | @${{ github.actor }}>
-        run: $ACTION_DIR/run-from-env.sh
-      - env:
+          EOF
+          )
+          $ACTION_DIR/run-from-env.sh
+      - name: 'Update canvas: step with generated id succeeded'
+        env:
           ACTION_COMMAND: update-workflow
           ACTION_STEP_ID: ${{ steps.named-step-test.outputs.step-id }}
           ACTION_STEP_STATUS: succeeded
         run: $ACTION_DIR/run-from-env.sh
-      - env:
+      - name: 'Update canvas: step push-action-image in progress'
+        env:
           ACTION_COMMAND: update-workflow
           ACTION_STEP_ID: push-action-image
           ACTION_STEP_STATUS: in progress
         run: $ACTION_DIR/run-from-env.sh
-      - run: |
-          docker tag action $IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
-          echo $IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
-          docker push $IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
-      - env:
+      - name: Tag and push fingerprinted action image
+        run: |
+          docker tag action $GHCR_IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
+          echo $GHCR_IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
+          docker push $GHCR_IMAGE_REPO:${{ steps.create-vars.outputs.fingerprint }}
+      - name: 'Update canvas: step push-action-image succeeded'
+        env:
           ACTION_COMMAND: update-workflow
           ACTION_STEP_ID: push-action-image
           ACTION_STEP_STATUS: succeeded
         run: $ACTION_DIR/run-from-env.sh
-      - env:
+      - name: 'Update canvas: Add image artifact'
+        env:
           ACTION_COMMAND: add-artifact
           ACTION_DESCRIPTION: >
-            *GCR Image*
-            <https://${{ env.IMAGE_REPO }}:${{ steps.create-vars.outputs.fingerprint }}
+            *Image*
+            <https://${{ env.GHCR_IMAGE_REPO }}:${{ steps.create-vars.outputs.fingerprint }}
             | ${{ steps.create-vars.outputs.fingerprint }}>
         run: $ACTION_DIR/run-from-env.sh
-      - if: github.ref != 'refs/heads/main'
+      - if: github.ref == 'refs/heads/main'
+        name: 'Create step in slack canvas with id: prepare-for-release'
         env:
-          ACTION_COMMAND: finalize-workflow
-          ACTION_WF_STATUS: succeeded
-        run: $ACTION_DIR/run-from-env.sh
-      - if: failure()
-        env:
-          ACTION_COMMAND: finalize-workflow
-          ACTION_WF_STATUS: failed
+          ACTION_COMMAND: update-workflow
+          ACTION_STEP_STATUS: in progress
+          ACTION_STEP_ID: prepare-for-release
         run: $ACTION_DIR/run-from-env.sh
     outputs:
       source-fingerprint: ${{ steps.create-vars.outputs.fingerprint }}
@@ -130,38 +160,115 @@ jobs:
       - uses: actions/checkout@main
       - uses: google-github-actions/setup-gcloud@master
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ secrets.IAM_GCR_REPO }}
           service_account_key: ${{ secrets.GCR_TOKEN }}
           export_default_credentials: true
-          credentials_file_path: /tmp/google.json
-      - run: gcloud auth configure-docker
+      - uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          docker pull $GHCR_IMAGE_REPO:$FINGERPRINT
+          docker tag $GHCR_IMAGE_REPO:$FINGERPRINT action
       - env:
           ACTION_COMMAND: create-step
           ACTION_STEP_STATUS: in progress
           ACTION_STEP_ID: release-action-image
+          ACTION_DESCRIPTION: >
+            Tag image <https://${{ env.GHCR_IMAGE_REPO }}:${{ env.FINGERPRINT }}
+            | ${{ env.FINGERPRINT }}> for release
+        run: $ACTION_DIR/run-from-env.sh
+      - env:
+          ACTION_COMMAND: create-step
+          ACTION_STEP_ID: validate-released-image
+          ACTION_DESCRIPTION: Validate released image
+        run: $ACTION_DIR/run-from-env.sh
+      - env:
+          ACTION_COMMAND: update-workflow
+          ACTION_STEP_STATUS: succeeded
+          ACTION_STEP_ID: prepare-for-release
         run: $ACTION_DIR/run-from-env.sh
       - run: |
-          BRANCH=$(basename ${{ github.ref }})
-          case $BRANCH in
-            develop)
-              TARGET_VERSION=dev
-              ;;
-            main)
-              TARGET_VERSION=release
-              ;;
-          esac
-          docker pull $IMAGE_REPO:$FINGERPRINT
-          docker tag $IMAGE_REPO:$FINGERPRINT $IMAGE_REPO:$TARGET_VERSION
-          docker push $IMAGE_REPO:$TARGET_VERSION
-      # Now that the image is released, we can use the action the
-      # normal way. This should be able to seamlessly ingest the
-      # context from the environment.
-      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@main
-        id: execute-action
+          docker pull $GHCR_IMAGE_REPO:$FINGERPRINT
+          docker tag $GHCR_IMAGE_REPO:$FINGERPRINT $GHCR_IMAGE_REPO:release
+          docker push $GHCR_IMAGE_REPO:release
+      - if: failure()
+        env:
+          ACTION_COMMAND: update-workflow
+          ACTION_STEP_STATUS: failed
+          ACTION_STEP_ID: release-action-image
+        run: $ACTION_DIR/run-from-env.sh
+      - env:
+          ACTION_COMMAND: update-workflow
+          ACTION_STEP_ID: release-action-image
+          ACTION_STEP_STATUS: succeeded
+          ACTION_WORKFLOW_STATUS: succeeded
+        run: $ACTION_DIR/run-from-env.sh
+  validate-release-image:
+    if: github.ref == 'refs/heads/main'
+    needs: [push-action-image, release-action]
+    runs-on: ubuntu-latest
+    env:
+      FINGERPRINT: ${{ needs.push-action-image.outputs.source-fingerprint }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.IAM_GCR_REPO }}
+          service_account_key: ${{ secrets.GCR_TOKEN }}
+          export_default_credentials: true
+      - name: 'Update workflow using standard actions syntax'
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
         with:
           command: update-workflow
-          step-id: release-action-image
+          step-id: validate-released-image
           step-status: succeeded
-          workflow-status: succeeded
-      - id: validate-action-fingerprint
-        run: test "${{ steps.execute-action.outputs.fingerprint }}" = "$FINGERPRINT"
+  validate-main-image:
+    if: github.ref == 'refs/heads/main'
+    needs: [push-action-image, release-action]
+    runs-on: ubuntu-latest
+    env:
+      FINGERPRINT: ${{ needs.push-action-image.outputs.source-fingerprint }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.IAM_GCR_REPO }}
+          service_account_key: ${{ secrets.GCR_TOKEN }}
+          export_default_credentials: true
+      - name: 'Update workflow using standard actions syntax'
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@main
+        with:
+          command: update-workflow
+          step-id: validate-released-image
+          step-status: succeeded
+  finalize-workflow:
+    if: always()
+    env:
+      FINGERPRINT: ${{ needs.push-action-image.outputs.source-fingerprint }}
+    needs: [push-action-image, release-action, validate-release-image]
+    runs-on: ubuntu-latest
+    steps:
+      - if: always()
+        uses: actions/checkout@main
+      - if: always()
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.IAM_GCR_REPO }}
+          service_account_key: ${{ secrets.GCR_TOKEN }}
+          export_default_credentials: true
+      - if: always()
+        run: |
+          docker pull $GHCR_IMAGE_REPO:$FINGERPRINT
+          docker tag $GHCR_IMAGE_REPO:$FINGERPRINT action
+      - if: failure()
+        env:
+          ACTION_COMMAND: finalize-workflow
+          ACTION_WF_STATUS: failed
+        run: $ACTION_DIR/run-from-env.sh
+      - if: success()
+        env:
+          ACTION_COMMAND: finalize-workflow
+          ACTION_WF_STATUS: succeeded
+        run: $ACTION_DIR/run-from-env.sh
