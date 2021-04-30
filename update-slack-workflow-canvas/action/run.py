@@ -10,8 +10,34 @@ from models import Workflow, WorkflowStatus, WorkflowStep, WorkflowStepStatus
 
 MAX_CONTEXT_ELEMENTS = 9
 
+
 def print_action_output(output_name: str, output_value: str):
     print(f"::set-output name={output_name}::{output_value}")
+
+
+def sanitize_text(text: Optional[str]) -> Optional[str]:
+    """
+    Makes sure we don't have wacky whitespace in our output, depending on how
+    the text is set.
+    :param text: The text to sanitize.
+    :return: The sanitized text.
+
+    Example:
+        # shell
+        DESCRIPTION="
+        blahblah
+        foobar
+            baz
+                    bop
+        "
+        # When the description is read in, it will become:
+        "blahblah foobar baz bop"
+    """
+    if not text:
+        return text
+    text = text.replace('\n', ' ')
+    return text.strip()
+
 
 
 @click.command(help="Creates a new workflow canvas")
@@ -22,7 +48,7 @@ def print_action_output(output_name: str, output_value: str):
               help="The channel to send messages to.")
 def create_canvas(description: str, channel: str, canvas_id: str):
     workflow = Workflow(
-        description=description,
+        description=sanitize_text(description),
         channel_name=channel,
         workflow_id=canvas_id,
     )
@@ -53,7 +79,7 @@ def create_step(description: str,
     with datastore_client.lock_workflow(canvas_id):
         workflow = datastore_client.load_workflow(canvas_id)
         step = WorkflowStep(
-            description=description,
+            description=sanitize_text(description),
             status=WorkflowStepStatus(step_status),
         )
         if step_id:
@@ -109,8 +135,7 @@ def add_artifact(description: str, canvas_id: str):
         workflow = datastore_client.load_workflow(canvas_id)
         if len(workflow.artifacts) >= MAX_CONTEXT_ELEMENTS:
             raise IndexError(f"A maximum of {MAX_CONTEXT_ELEMENTS} artifacts per canvas can be attached.")
-
-        workflow.artifacts.append(f'> {description}')
+        workflow.artifacts.append(f'> {sanitize_text(description)}')
         datastore_client.store_workflow(workflow)
         WorkflowCanvasClient().update_workflow_canvas(workflow)
 
