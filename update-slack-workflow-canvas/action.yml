@@ -14,11 +14,13 @@ inputs:
   canvas-id:
     required: true
     description: >
-      Always required to be set. For convenience, you can set this in your
-      workflow env as `SLACK_CANVAS_ID`. This identifies the canvas you
-      are interacting with. This allows you interact with more than one canvas
-      in a given workflow, if desired.
-    default: ${{ env.SLACK_CANVAS_ID }}
+      Always required to be set. If you want to "set it and forget it" for your
+      entire workflow, use the deferred evaluation of an environment variable
+      by providing the string: "use_env(VAR_NAME)", where VAR_NAME is the environment
+      variable you want to use. This is required to provide an environment
+      variable default, as Github Actions disallows the `env` context
+      during this declaration.
+    default: use_env(SLACK_CANVAS_ID)
   channel:
     required: false
     description: >
@@ -36,7 +38,6 @@ inputs:
         - in progress
         - succeeded
         - failed
-
   step-status:
     required: false
     description: |
@@ -75,7 +76,7 @@ outputs:
 
 runs:
   using: docker
-  image: gcr.io/uwit-mci-iam/update-slack-workflow-status-action:release
+  image: docker://ghcr.io/uwit-iam/update-slack-workflow-canvas-action:release
   env:
     ACTION_COMMAND: ${{ inputs.command }}
     ACTION_CHANNEL: ${{ inputs.channel }}
