@@ -1,0 +1,106 @@
+name: Boilerplate slack workflow. Rename this!
+
+on:
+  push:
+    # This supports the ability to force push to run for testing purposes,
+    # or if you want to force a rebuild for any reason! You should change this.
+    branches:
+      - run-boilerplate-workflow
+
+env:
+  # You should change this depending on your needs; the sandbox is a fine place
+  # for testing new workflows and doesn't bother anyone.
+  # If you want to push notifications to a new channel, make sure that you
+  #   /invite @iam-slack-actions-crier (one-time setup)
+  SLACK_CHANNEL: '#iam-bot-sandbox'
+  # Only change this value if you want to do something fancy or have problems with
+  # this particular means of indexing the canvas.
+  SLACK_CANVAS_ID: "${{ github.run_id }}.${{ github.run_number }}"
+  # Only change this if you don't want to use the "free" bot that anyone in IAM can use.
+  SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
+
+jobs:
+  run-example-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Generate $SHORT_SHA enviroment variable (it looks nicer!)
+        env:
+          SHA: ${{ github.sha }}
+        run: echo "SHORT_SHA=${SHA:0:9}" >> $GITHUB_ENV
+      # We must talk to Google Cloud Datastore, which requires credentials.
+      # Luckily, those are provided for you at the org level in github.
+      # You need to include the next block, but you don't need to change it!
+      - with:
+          project_id: ${{ secrets.IAM_GCR_REPO }}
+          service_account_key: ${{ secrets.GCR_TOKEN }}
+          export_default_credentials: true
+        uses: google-github-actions/setup-gcloud@master
+      # This step is always required; it creates the canvas (which is really just
+      # a slack message that we re-write over and over again.
+      - name: Initialize workflow canvas
+        with:
+          command: create-canvas
+          channel: ${{ env.SLACK_CHANNEL }}
+          # The canvas description appears as the canvas "header",
+          # in the format of: "[<STATUS>] <Description>".
+          # When first created, this template would result in a header that looked
+          # like:
+          #   [In Progress] Boilerplate slack workflow. Rename this!
+          #
+          # You may _NOT_ include mrkdwn here, except for emoji shortcodes.
+          description: ${{ github.workflow }}
+          workflow-status: in progress
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+      - with:
+          command: create-step
+          step-id: say-hello
+          # When adding a step, the description appears as a list item on the canas.
+          # This description _MAY_ include mrkdwn.
+          description: >
+            Hello ~world~ <https://github.com/${{ github.actor }}
+            | ${{ github.actor }}>!
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        # You can add up to 8 artifacts to your canvas; once added, an artifact
+        # cannot be updated; artifacts are meant to be long-term linkable
+        # resources, or otherwise preserve some static context.
+      - with:
+          command: add-artifact
+          # You _MAY_ use mrkdwn here, however to keep an opinionated and consistent
+          # canvas, all artifacts will be offset as block quotes.
+          # It is best to minimize the number of artifacts and prefer, where possible,
+          # to attach several links in a single artifact. This saves screen real estate.
+          description: >
+            *Event*:
+            <https://www.github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            | ${{ github.event_name }}>,
+            *Author*: <https://www.github.com/${{ github.actor }}
+            | ${{ github.actor }}>,
+            *Commit*: <https://www.github.com/${{ github.repository }}/commit/${{ github.sha }}
+            | ${{ env.SHORT_SHA }}>,
+            *Repo*: <https://www.github.com/${{ github.repository}}
+            | ${{ github .repository }}>
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        # This is a simple block to update the previously declared step.
+      - with:
+          command: update-workflow
+          step-id: say-hello
+          step-status: succeeded
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+      - with:
+          command: update-workflow
+          workflow-status: succeeded
+        if: success()
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+      - with:
+          command: update-workflow
+          workflow-status: failed
+        if: failure()
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+      # Always end your workflow with this block. Finalize workflow must be called
+      # exactly once per workflow! If your workflow status says `INCOMPLETE`, then
+      # this block has not been invoked.
+      - with:
+          command: finalize-workflow
+        if: always()
+        uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
