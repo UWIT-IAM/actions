@@ -1,4 +1,4 @@
-FROM gcr.io/uwit-mci-iam/poetry AS action-base
+FROM ghcr.io/uwit-iam/poetry AS action-base
 WORKDIR /action
 ENV PATH="${POETRY_HOME}/bin:${PATH}"
 COPY poetry.lock pyproject.toml ./

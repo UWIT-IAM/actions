@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+test "$ACTION_DEBUG" && set -x
+
 # ENV args set by action.yml
 ACTION_ARGS=""
 ACTION_COMMAND="${ACTION_COMMAND}"
@@ -11,13 +13,33 @@ ACTION_STEP_STATUS="${ACTION_STEP_STATUS}"
 ACTION_STEP_ID="${ACTION_STEP_ID}"
 ACTION_CANVAS="${ACTION_CANVAS}"
 
-CMD="python -m run $ACTION_COMMAND"
+CMD="python /action/run.py $ACTION_COMMAND"
 
 function add-arg-if-exists() {
   if [[ -n "$2" ]]
   then
-    ACTION_ARGS+=" --$1 '$2'"
+    ACTION_ARGS+=" --$1 '$(get_value_from_arg $2)'"
   fi
+}
+
+# Actions doesn't inherently allow an environment
+# variable as a default, which puts more strain on the
+# person writing the actions to have to paste the
+# same thing over and over. This will allow us to set
+# values as "use_env(foo)" which will extract the env
+# value at _runtime_, as opposed to during the action's
+# "compile" time. This does so in a way that is safe to use
+# and does not execute arbitrary code using eval.
+# Example:
+#   CANVAS_ID=12345 ACTION_CANVAS="use_env(CANVAS_ID)" ./entrypoint.sh
+function get_value_from_arg() {
+  provided_value="$@"
+   if [[ $provided_value =~ ^use_env\((.*)\)$ ]]
+   then
+       echo "${!BASH_REMATCH[1]}"
+   else
+       echo "$provided_value"
+   fi
 }
 
 case "$ACTION_COMMAND" in
