@@ -20,11 +20,14 @@ on:
       # we should -not- automatically build preview branches for all
       # pull requests).
       - main
+    paths:
+      # Only run this if the workfow canvas action has been updated
+      - update-slack-workflow-canvas/*
 
 env:
   ACTION_DIR: update-slack-workflow-canvas
   SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
-  ACTION_CHANNEL: "#iam-bots"
+  SLACK_CHANNEL: "#iam-bots"
   GHCR_IMAGE_REPO: ghcr.io/uwit-iam/update-slack-workflow-canvas-action
   SLACK_CANVAS_ID: "${{ github.run_id }}.${{ github.run_number }}"
 

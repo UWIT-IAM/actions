@@ -1,0 +1,64 @@
+on:
+  push:
+    branches:
+      - test-bastion-runner
+      - bastion-runner*
+    paths:
+      - bastion-runner/*
+
+env:
+  SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
+  SLACK_CHANNEL: "#iam-bot-sandbox"
+  SLACK_CANVAS_ID: "bastion-runner/${{ github.run_id }}.${{ github.run_number }}"
+
+jobs:
+  test-bastion-runner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.IAM_GCR_REPO }}
+          service_account_key: ${{ secrets.GCR_TOKEN }}
+          export_default_credentials: true
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        with:
+          command: create-canvas
+          description: Test the UWIT-IAM/bastion-runner action
+          channel: ${{ env.SLACK_CHANNEL }}
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        with:
+          command: update-workflow
+          workflow-status: in progress
+
+      - uses: UWIT-IAM/actions/bastion-runner@test-bastion-runner
+        with:
+          user: subman2
+          ssh-key: ${{ secrets.SUBMAN2 }}
+          subdomain: seuss
+          command: ls ./bin/*.sh
+        id: list-subman-scripts
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        with:
+          command: add-artifact
+          description: >
+            *Output from `ls ./bin/*.sh` for subman2*:
+            `${{ steps.list-subman-scripts.outputs.output }}
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        with:
+          command: update-workflow
+          workflow-status: succeeded
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        if: failure()
+        with:
+          command: update-workflow
+          workflow-status: failed
+
+      - uses: UWIT-IAM/actions/update-slack-workflow-canvas@release
+        if: always()
+        with:
+          command: finalize-workflow

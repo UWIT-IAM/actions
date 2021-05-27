@@ -1,0 +1,41 @@
+name: Run a command on a server in the u.washington.edu subdomain.
+description: >
+  Requires an SSH key that has adequate credentials.
+inputs:
+  user:
+    required: true
+    description: The user to run as
+  ssh-key:
+    required: true
+    description: The ssh key that grants the user access
+  subdomain:
+    required: true
+    description: '<subdomain>.u.washington.edu'
+  command:
+    required: true
+    description: The full command you want to run on the server.
+
+outputs:
+  output:
+    value: ${{ steps.run-command.outputs.output }}
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        COMMAND: >
+          ssh -i .ssh/${{ inputs.user }}
+          -o StrictHostKeyChecking=no
+          "${{ inputs.user }}@${{ inputs.subdomain }}.u.washington.edu"
+          "${{ inputs.command }}"
+
+      run: |
+        mkdir -p .ssh
+        chmod 700 .ssh
+        echo "${{ inputs.ssh-key }}" > .ssh/${{ inputs.user }}
+        chmod 600 .ssh/${{ inputs.user }}
+        OUTPUT=$(${{ env.COMMAND }})
+        echo ::set-output name=output::"$OUTPUT"
+        rm -f .ssh/${{ inputs.user }}
+      id: run-command
