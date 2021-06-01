@@ -76,8 +76,8 @@ def create_step(description: str,
                 workflow_status: Optional[str] = None,
                 step_id: Optional[str] = None):
     datastore_client = DatastoreClient()
-    with datastore_client.lock_workflow(canvas_id):
-        workflow = datastore_client.load_workflow(canvas_id)
+
+    with datastore_client.lock_workflow(canvas_id, save_on_exit=True) as workflow:
         step = WorkflowStep(
             description=sanitize_text(description),
             status=WorkflowStepStatus(step_status),
@@ -89,41 +89,112 @@ def create_step(description: str,
             workflow.status = WorkflowStatus(workflow_status)
         print_action_output('step-id', step.step_id)
         workflow.steps.append(step)
-        datastore_client.store_workflow(workflow)
-        WorkflowCanvasClient().update_workflow_canvas(workflow)
-    print_action_output('lock-id', datastore_client.lock_id)
+
+    WorkflowCanvasClient().update_workflow_canvas(workflow)
+    print_action_output("lock-id", datastore_client.lock_id)
 
 
-@click.command(help='Update an already initialized step')
-@click.option('--canvas-id', required=True, help='Required. The workflow canvas json.')
-@click.option('--step-status', help="The new status for the step", default=None)
-@click.option('--workflow-status', help="The new status for the workflow", default=None)
-@click.option('--step-id', help='Required if step-status is provided. The id of the step to update.')
+@click.command(
+    help="Remove an existing step, if it exists. Otherwise, a warning will be logged."
+)
+@click.option("--canvas-id", required=True, help="Required. The workflow canvas json.")
+@click.option(
+    "--step-id",
+    "step_ids",
+    required=True,
+    multiple=True,
+    help="Required. The step id to remove. You may supply"
+    "this multiple times to remove many steps, or "
+    'supply the value "*" to remove all of them. ',
+)
+@click.option(
+    "--status-filter",
+    "-s",
+    required=False,
+    default=None,
+    multiple=True,
+    type=click.Choice(WorkflowStepStatus),
+    help="Optional, can be supplied multiple times. "
+    "Only removes a step if it matches the status provided.",
+)
+def remove_step(canvas_id: str, step_ids: str, status_filter: List[WorkflowStepStatus]):
+    datastore_client = DatastoreClient()
+
+    with datastore_client.lock_workflow(canvas_id, save_on_exit=True) as workflow:
+        if step_ids[0] == "*":
+            step_ids = [step.step_id for step in workflow.steps]
+
+        for step in workflow.steps:
+            if step.id not in step_ids:
+                continue
+            if status_filter and step.status not in status_filter:
+                logging.info(
+                    f"Step {step.step_id} has status {step.status} "
+                    f"which does not match filter: {status_filter}. "
+                    "NOT removing."
+                )
+                return
+            workflow.steps.remove(step)
+
+    WorkflowCanvasClient().update_workflow_canvas(workflow)
+    print_action_output("lock-id", datastore_client.lock_id)
+
+
+@click.command(
+    help="Update an already initialized step, or the workflow status itself."
+)
+@click.option("--canvas-id", required=True, help="Required. The workflow canvas json.")
+@click.option(
+    "--step-status",
+    "statuses",
+    default=None,
+    multiple=True,
+    type=click.Choice(WorkflowStepStatus),
+    help="The new status for the step. You may supply this multiple times to "
+    "update multiple steps at once.",
+)
+@click.option(
+    "--workflow-status",
+    default=None,
+    type=click.Choice(WorkflowStatus),
+    required=False,
+    help="The new status for the workflow.",
+)
+@click.option(
+    "--step-id",
+    "step_ids",
+    multiple=True,
+    help="Required for each step-status is provided. " "The id of the step to update. ",
+)
 def update_workflow(
-    step_status: str,
+    statuses: List[WorkflowStepStatus],
     workflow_status: str,
     canvas_id: str,
-    step_id: Optional[str] = None
+    step_ids: List[str],
 ):
     datastore_client = DatastoreClient()
-    with datastore_client.lock_workflow(canvas_id):
-        workflow = datastore_client.load_workflow(canvas_id)
+    if len(step_ids) != len(statuses):
+        raise ValueError(
+            f"Mismatch in number of steps "
+            f"({len(step_ids)}) and statuses ({len(statuses)})."
+        )
+
+    with datastore_client.lock_workflow(canvas_id, save_on_exit=True) as workflow:
+        wf_step_ids = [s.step_id for s in workflow.steps]
         if workflow_status:
-            workflow.status = WorkflowStatus(workflow_status)
+            workflow.status = workflow_status
 
-        if step_status:
-            step = None
-            if step_id:
-                try:
-                    step = next(s for s in workflow.steps if s.step_id == step_id)
-                except StopIteration:
-                    raise ValueError(f'No step named {step_id}')
+        for step_id_index, step_id in enumerate(step_ids):
+            try:
+                step_index = wf_step_ids.index(step_id)
+            except IndexError:
+                raise ValueError(f"No step named {step_id}")
 
-            step.status = WorkflowStepStatus(step_status)
+            step_status = statuses[step_id_index]
+            workflow.steps[step_index] = step_status
 
-        datastore_client.store_workflow(workflow)
-        WorkflowCanvasClient().update_workflow_canvas(workflow)
-    print_action_output('lock-id', datastore_client.lock_id)
+    WorkflowCanvasClient().update_workflow_canvas(workflow)
+    print_action_output("lock-id", datastore_client.lock_id)
 
 
 @click.command(help='Add a context artifact to the workflow canvas')
@@ -131,8 +202,7 @@ def update_workflow(
 @click.option('--canvas-id', help='Your b64-encoded canvas.')
 def add_artifact(description: str, canvas_id: str):
     datastore_client = DatastoreClient()
-    with datastore_client.lock_workflow(canvas_id):
-        workflow = datastore_client.load_workflow(canvas_id)
+    with datastore_client.lock_workflow(canvas_id, save_on_exit=True) as workflow:
         if len(workflow.artifacts) >= MAX_CONTEXT_ELEMENTS:
             raise IndexError(f"A maximum of {MAX_CONTEXT_ELEMENTS} artifacts per canvas can be attached.")
         workflow.artifacts.append(f'> {sanitize_text(description)}')
@@ -147,16 +217,16 @@ def finalize_workflow(canvas_id: str, workflow_status: str):
     if workflow_status:
         workflow_status = WorkflowStatus(workflow_status)
     datastore_client = DatastoreClient()
-    with datastore_client.lock_workflow(canvas_id):
-        workflow = datastore_client.load_workflow(canvas_id)
-        workflow.artifacts.pop(0)
-        workflow.artifacts.insert(0, 'COMPLETE')
-        if workflow_status:
-            workflow.status = workflow_status
-        datastore_client.store_workflow(workflow)
+    try:
+        with datastore_client.lock_workflow(canvas_id) as workflow:
+            workflow = datastore_client.load_workflow(canvas_id)
+            workflow.artifacts[0] = "COMPLETE"
+            if workflow_status:
+                workflow.status = workflow_status
+            datastore_client.delete_workflow(workflow.workflow_id)
         WorkflowCanvasClient().update_workflow_canvas(workflow)
-        datastore_client.delete_workflow(workflow.workflow_id)
-    datastore_client.delete_lock(workflow.workflow_id)
+    finally:
+        datastore_client.delete_lock(workflow.workflow_id)
 
 
 @click.command(help="Simply dump workflow json and exit.")
