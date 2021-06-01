@@ -27,33 +27,33 @@ class ActionBaseModel(BaseModel):
 
 
 class WorkflowStepStatus(Enum):
-    not_started = 'not started'
-    in_progress = 'in progress'
-    skipped = 'skipped'
-    succeeded = 'succeeded'
-    failed = 'failed'
+    not_started = "not started"
+    in_progress = "in progress"
+    skipped = "skipped"
+    succeeded = "succeeded"
+    failed = "failed"
 
 
 class WorkflowStatus(Enum):
-    initializing = 'initializing'
-    in_progress = 'in progress'
-    succeeded = 'succeeded'
-    failed = 'failed'
+    initializing = "initializing"
+    in_progress = "in progress"
+    succeeded = "succeeded"
+    failed = "failed"
 
 
 STEP_STATUS_ICONS = {
-    WorkflowStepStatus.succeeded: ':white_check_mark:',
-    WorkflowStepStatus.failed: ':octagonal_sign:',
-    WorkflowStepStatus.not_started: ':double_vertical_bar:',
-    WorkflowStepStatus.in_progress: ':arrow_forward:',
-    WorkflowStepStatus.skipped: ':fast_forward:'
+    WorkflowStepStatus.succeeded: ":white_check_mark:",
+    WorkflowStepStatus.failed: ":octagonal_sign:",
+    WorkflowStepStatus.not_started: ":double_vertical_bar:",
+    WorkflowStepStatus.in_progress: ":arrow_forward:",
+    WorkflowStepStatus.skipped: ":fast_forward:",
 }
 
 WORKFLOW_STATUS_ICONS = {
-    WorkflowStatus.initializing: ':white_circle:',
-    WorkflowStatus.in_progress: ':large_yellow_circle:',
-    WorkflowStatus.succeeded: ':large_green_circle:',
-    WorkflowStatus.failed: ':red_circle:'
+    WorkflowStatus.initializing: ":white_circle:",
+    WorkflowStatus.in_progress: ":large_yellow_circle:",
+    WorkflowStatus.succeeded: ":large_green_circle:",
+    WorkflowStatus.failed: ":red_circle:",
 }
 
 
@@ -68,7 +68,7 @@ class WorkflowStep(BaseModel):
             SectionBlock(
                 fields=[
                     Block(text=self.description),
-                    Block(text=f'{icon} {self.status.value.title()}')
+                    Block(text=f"{icon} {self.status.value.title()}"),
                 ]
             )
         ]
@@ -76,26 +76,24 @@ class WorkflowStep(BaseModel):
     @property
     def canvas_payload(self):
         result = self.dict()
-        result.update({
-            'status': self.status.value
-        })
+        result.update({"status": self.status.value})
         return result
 
 
 class SlackFormat:
     @staticmethod
     def link(href, text) -> str:
-        return f'<{href} | {text}>'
+        return f"<{href} | {text}>"
 
 
 class SlackBlockType(Enum):
-    section = 'section'
-    mrkdwn = 'mrkdwn'
-    divider = 'divider'
-    header = 'header'
-    image = 'image'
-    text = 'plain_text'
-    context = 'context'
+    section = "section"
+    mrkdwn = "mrkdwn"
+    divider = "divider"
+    header = "header"
+    image = "image"
+    text = "plain_text"
+    context = "context"
 
 
 class APIModel(BaseModel):
@@ -106,7 +104,9 @@ class APIModel(BaseModel):
 
 
 class Block(APIModel):
-    block_type: Union[str, SlackBlockType] = Field(default=SlackBlockType.mrkdwn, alias='type')
+    block_type: Union[str, SlackBlockType] = Field(
+        default=SlackBlockType.mrkdwn, alias="type"
+    )
     text: Optional[Union[str, Block]]
 
 
@@ -114,37 +114,37 @@ Block.update_forward_refs()
 
 
 class ImageBlock(Block):
-    block_type: Union[str, SlackBlockType] = Field('image', const=True, alias='type')
+    block_type: Union[str, SlackBlockType] = Field("image", const=True, alias="type")
     # Require alt text to encourage accessibility
-    text: str = Field(..., alias='alt_text')
+    text: str = Field(..., alias="alt_text")
     image_url: str
 
 
 class ContextBlock(Block):
-    block_type: Union[str, SlackBlockType] = Field('context', const=True, alias='type')
+    block_type: Union[str, SlackBlockType] = Field("context", const=True, alias="type")
     elements: List[Block]
 
-    @validator('elements', each_item=True)
+    @validator("elements", each_item=True)
     def validate_elements(cls, item: Block) -> Block:
         if SlackBlockType(item.block_type) not in (
             SlackBlockType.mrkdwn,
             SlackBlockType.text,
-            SlackBlockType.image
+            SlackBlockType.image,
         ):
-            raise ValueError(
-                'context blocks can only contain image and text elements'
-            )
+            raise ValueError("context blocks can only contain image and text elements")
         return item
 
 
 class SectionBlock(Block):
-    block_type: Union[str, SlackBlockType] = Field('section', const=True, alias='type')
+    block_type: Union[str, SlackBlockType] = Field("section", const=True, alias="type")
     fields: List[Block] = []
 
 
 class PostMessageInput(APIModel):
-    timestamp: str = Field(default_factory=lambda: datetime.now(tz=timezone('US/Pacific')).isoformat(),
-                           alias='ts')
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(tz=timezone("US/Pacific")).isoformat(),
+        alias="ts",
+    )
     channel: str
     username: str
     icon_emoji: str
@@ -153,8 +153,8 @@ class PostMessageInput(APIModel):
 
 
 class ActionSettings(BaseSettings):
-    slack_bot_token: SecretStr = Field(..., env='SLACK_BOT_TOKEN')
-    context_storage: str = Field('/tmp/action_context', env='CONTEXT_STORAGE_PATH')
+    slack_bot_token: SecretStr = Field(..., env="SLACK_BOT_TOKEN")
+    context_storage: str = Field("/tmp/action_context", env="CONTEXT_STORAGE_PATH")
 
 
 class CreateMessageInput(BaseModel):
@@ -181,10 +181,9 @@ class Workflow(ActionBaseModel):
     @property
     def artifact_blocks(self) -> List[Block]:
         return [
-            ContextBlock(block_type=SlackBlockType.context,
-                         elements=[
-                             Block(text=artifact)
-                         ])
+            ContextBlock(
+                block_type=SlackBlockType.context, elements=[Block(text=artifact)]
+            )
             for artifact in self.artifacts
         ]
 
@@ -195,34 +194,30 @@ class Workflow(ActionBaseModel):
             block_type=SlackBlockType.header,
             text=Block(
                 block_type=SlackBlockType.text,
-                text=f'{icon} [{self.status.value.title()}] {self.description}',
-            )
+                text=f"{icon} [{self.status.value.title()}] {self.description}",
+            ),
         )
 
     @property
     def canvas_payload(self):
-        _dict = self.dict(exclude={'steps'})
-        _dict.update({
-            'status': self.status.value,
-            'steps': [
-                step.canvas_payload for step in self.steps
-            ]
-        })
+        _dict = self.dict(exclude={"steps"})
+        _dict.update(
+            {
+                "status": self.status.value,
+                "steps": [step.canvas_payload for step in self.steps],
+            }
+        )
         return _dict
 
     def get_message_blocks(self) -> List[Block]:
-        blocks = [
-            self.header_block
-        ]
+        blocks = [self.header_block]
 
         for step in self.steps:
             blocks.extend(step.get_message_blocks())
 
         blocks.extend(self.artifact_blocks)
 
-        blocks.append(
-            Block(block_type=SlackBlockType.divider)
-        )
+        blocks.append(Block(block_type=SlackBlockType.divider))
 
         return blocks
 

@@ -14,10 +14,10 @@ from models import ActionSettings, PostMessageInput, Workflow
 
 class DatastoreClient:
     def __init__(self):
-        self.client = datastore.Client(namespace='github-actions')
+        self.client = datastore.Client(namespace="github-actions")
         self.lock_id = str(uuid4())
-        self.workflow_kind = 'SlackWorkflowCanvas'
-        self.lock_kind = 'SlackWorkflowLock'
+        self.workflow_kind = "SlackWorkflowCanvas"
+        self.lock_kind = "SlackWorkflowLock"
 
     @contextmanager
     def lock_workflow(self, workflow_id: str, save_on_exit: bool = False) -> Workflow:
@@ -70,9 +70,11 @@ class DatastoreClient:
 class WorkflowCanvasClient:
     def __init__(self):
         self._settings = ActionSettings()
-        self._slack_client = WebClient(self._settings.slack_bot_token.get_secret_value())
+        self._slack_client = WebClient(
+            self._settings.slack_bot_token.get_secret_value()
+        )
         self._input_template = PostMessageInput.construct(
-            channel_name='#tom-integration-sandbox',
+            channel_name="#tom-integration-sandbox",
         )
 
     @property
@@ -80,18 +82,21 @@ class WorkflowCanvasClient:
         return self._slack_client
 
     def create_workflow_canvas(self, workflow: Workflow):
-        workflow.artifacts.append('INCOMPLETE')
+        workflow.artifacts.append("INCOMPLETE")
         post_message_input = self._input_template.copy(
             update=dict(
                 text=workflow.description,
-                blocks=[b.dict(by_alias=True, exclude_none=True) for b in workflow.get_message_blocks()]
+                blocks=[
+                    b.dict(by_alias=True, exclude_none=True)
+                    for b in workflow.get_message_blocks()
+                ],
             )
         )
         message_input = post_message_input.dict(by_alias=True, exclude_none=True)
-        message_input['channel'] = workflow.channel
+        message_input["channel"] = workflow.channel
         response = self.slack_client.chat_postMessage(**message_input)
-        message_id = response.data['message']['ts']
-        channel_id = response.data['channel']
+        message_id = response.data["message"]["ts"]
+        channel_id = response.data["channel"]
         workflow.message_id = message_id
         workflow.channel_id = channel_id
 
@@ -102,10 +107,13 @@ class WorkflowCanvasClient:
                 ts=workflow.message_id,
                 channel_id=workflow.channel_id,
                 blocks=[
-                    b.dict(by_alias=True, exclude_none=True) for b in workflow.get_message_blocks()
-                ]
+                    b.dict(by_alias=True, exclude_none=True)
+                    for b in workflow.get_message_blocks()
+                ],
             )
         )
-        update_message_input = update_message_input.dict(by_alias=True, exclude_none=True)
-        update_message_input['channel'] = workflow.channel
+        update_message_input = update_message_input.dict(
+            by_alias=True, exclude_none=True
+        )
+        update_message_input["channel"] = workflow.channel
         self.slack_client.chat_update(**update_message_input)
