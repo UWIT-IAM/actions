@@ -31,6 +31,7 @@ docker run \
   -e ACTION_WF_STATUS \
   -e ACTION_STEP_STATUS \
   -e ACTION_CANVAS \
+  -e ACTION_JSON \
   -e CI \
   -e GOOGLE_APPLICATION_CREDENTIALS="/secrets/$CREDENTIALS_FILE" \
   action .

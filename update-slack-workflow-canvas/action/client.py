@@ -36,8 +36,8 @@ class DatastoreClient:
                 lock_entity["lock_id"] = self.lock_id
                 self.client.put(lock_entity)
                 lock_acquired = True
-        workflow = self.load_workflow(workflow_id)
         try:
+            workflow = self.load_workflow(workflow_id)
             yield workflow
             if save_on_exit:
                 self.store_workflow(workflow)

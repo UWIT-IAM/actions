@@ -2,11 +2,30 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Type, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, BaseSettings, Extra, Field, SecretStr, validator
 from pytz import timezone
+
+
+class ImprovedEnum(Enum):
+    @classmethod
+    def from_value(cls, val: Union[str, ImprovedEnum]) -> ImprovedEnum:
+        if isinstance(val, str):
+            try:
+                return cls(val)
+            except ValueError:
+                return cls.members_by_value()[val]
+        return val
+
+    @classmethod
+    def members_by_value(cls) -> Dict[str, str]:
+        return {member.value: name for name, member in cls.__members__.items()}
+
+    @classmethod
+    def values(cls: Type[ImprovedEnum]) -> List[str]:
+        return [m.value for m in cls.__members__.values()]
 
 
 def to_mixed_case(string: str):
@@ -26,7 +45,7 @@ class ActionBaseModel(BaseModel):
         use_enum_values = True
 
 
-class WorkflowStepStatus(Enum):
+class WorkflowStepStatus(ImprovedEnum):
     not_started = "not started"
     in_progress = "in progress"
     skipped = "skipped"
@@ -34,7 +53,7 @@ class WorkflowStepStatus(Enum):
     failed = "failed"
 
 
-class WorkflowStatus(Enum):
+class WorkflowStatus(ImprovedEnum):
     initializing = "initializing"
     in_progress = "in progress"
     succeeded = "succeeded"
@@ -57,18 +76,33 @@ WORKFLOW_STATUS_ICONS = {
 }
 
 
-class WorkflowStep(BaseModel):
+class WorkflowStep(ActionBaseModel):
     description: str
-    status: WorkflowStepStatus
+    status: WorkflowStepStatus = Field(WorkflowStepStatus.not_started)
     step_id: str = Field(default_factory=lambda: str(uuid4()))
 
+    @property
+    def status_enum(self) -> WorkflowStepStatus:
+        # Guarantees an enum no matter the model config
+        # representation of enums
+        try:
+            return WorkflowStepStatus(self.status)
+        except ValueError:
+            return WorkflowStepStatus.from_value(self.status)
+
+    @property
+    def status_str(self) -> str:
+        # Guarantees the enum value no matter the model config
+        # representation of enums
+        return self.status_enum.value
+
     def get_message_blocks(self) -> List[Block]:
-        icon = STEP_STATUS_ICONS.get(self.status)
+        icon = STEP_STATUS_ICONS.get(self.status_enum)
         return [
             SectionBlock(
                 fields=[
                     Block(text=self.description),
-                    Block(text=f"{icon} {self.status.value.title()}"),
+                    Block(text=f"{icon} {self.status_str.title()}"),
                 ]
             )
         ]
@@ -76,7 +110,7 @@ class WorkflowStep(BaseModel):
     @property
     def canvas_payload(self):
         result = self.dict()
-        result.update({"status": self.status.value})
+        result.update({"status": self.status_str})
         return result
 
 
@@ -86,7 +120,7 @@ class SlackFormat:
         return f"<{href} | {text}>"
 
 
-class SlackBlockType(Enum):
+class SlackBlockType(ImprovedEnum):
     section = "section"
     mrkdwn = "mrkdwn"
     divider = "divider"
@@ -96,11 +130,9 @@ class SlackBlockType(Enum):
     context = "context"
 
 
-class APIModel(BaseModel):
-    class Config:
+class APIModel(ActionBaseModel):
+    class Config(ActionBaseModel.Config):
         extra = Extra.allow
-        use_enum_values = True
-        allow_population_by_field_name = True
 
 
 class Block(APIModel):
@@ -157,7 +189,7 @@ class ActionSettings(BaseSettings):
     context_storage: str = Field("/tmp/action_context", env="CONTEXT_STORAGE_PATH")
 
 
-class CreateMessageInput(BaseModel):
+class CreateMessageInput(ActionBaseModel):
     workflow_description: Optional[str]
 
 
@@ -179,6 +211,17 @@ class Workflow(ActionBaseModel):
         return self.channel_id or self.channel_name
 
     @property
+    def status_enum(self) -> WorkflowStatus:
+        try:
+            return WorkflowStatus(self.status)
+        except ValueError:
+            return WorkflowStatus.from_value(self.status)
+
+    @property
+    def status_str(self) -> str:
+        return self.status_enum.value
+
+    @property
     def artifact_blocks(self) -> List[Block]:
         return [
             ContextBlock(
@@ -189,12 +232,12 @@ class Workflow(ActionBaseModel):
 
     @property
     def header_block(self) -> Block:
-        icon = WORKFLOW_STATUS_ICONS.get(self.status)
+        icon = WORKFLOW_STATUS_ICONS.get(self.status_enum)
         return Block(
             block_type=SlackBlockType.header,
             text=Block(
                 block_type=SlackBlockType.text,
-                text=f"{icon} [{self.status.value.title()}] {self.description}",
+                text=f"{icon} [{self.status_str.title()}] {self.description}",
             ),
         )
 
@@ -203,7 +246,7 @@ class Workflow(ActionBaseModel):
         _dict = self.dict(exclude={"steps"})
         _dict.update(
             {
-                "status": self.status.value,
+                "status": self.status_str,
                 "steps": [step.canvas_payload for step in self.steps],
             }
         )

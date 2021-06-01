@@ -266,7 +266,7 @@ jobs:
         env:
           ACTION_COMMAND: finalize-workflow
           ACTION_WF_STATUS: failed
-        run: $ACTION_DIR/run-from-env.sh
+        run: $ACTION_DIR/run-from-env.sh --build
       - if: success()
         env:
           ACTION_COMMAND: finalize-workflow

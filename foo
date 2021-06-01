@@ -1,0 +1,1 @@
+{ "description": "A test workflow created using json, "workflowId": "tomtest", "channel": "#iam-bot-sandbox", "steps": [ { "stepId": "step-1", "description": "Here is *Step 1*", "status": "in progress" }, { "stepId": "step-2", "description": "Here is *Step 2*", }

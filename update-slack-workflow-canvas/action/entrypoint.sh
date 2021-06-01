@@ -30,7 +30,7 @@ set -e
 function add-arg-if-exists() {
   if [[ -n "$2" ]]
   then
-    ACTION_ARGS+=" --$1 '$(get_value_from_arg $2)'"
+    ACTION_ARGS+=" --$1 '$(get_value_from_arg $2)' "
   fi
 }
 
@@ -45,12 +45,18 @@ function add-multi-arg-if-exists() {
   #     --foo bar --foo baz --foo bop
   if [[ -n "$2" ]]
   then
-    local args=()
-    IFS=',' read -r -a args <<< "$x"
-    for val in "${args[@]}"
-    do
-      ACTION_ARGS+= "--$1 $(get_value_from_arg $2)"
-    done
+    if [[ "$2" == '*' ]]
+    then
+      # Don't try to pass the wildcard around, things will
+      # get wacky.
+      ACTION_ARGS+="--$1 '*' "
+    else
+      IFS=',' read -r -a args <<< "$2"
+      for val in "${args[@]}"
+      do
+        ACTION_ARGS+="--$1 '$(get_value_from_arg $val)' "
+      done
+    fi
   fi
 }
 
@@ -87,6 +93,11 @@ case "$ACTION_COMMAND" in
     add-arg-if-exists step-id "${ACTION_STEP_ID}"
     add-arg-if-exists canvas-id "${ACTION_CANVAS}"
     add-arg-if-exists description "${ACTION_DESCRIPTION}"
+    ;;
+  remove-step)
+    add-arg-if-exists canvas-id "${ACTION_CANVAS}"
+    add-multi-arg-if-exists step-id "${ACTION_STEP_ID}"
+    add-multi-arg-if-exists step-status "${ACTION_STEP_STATUS}"
     ;;
   update-workflow)
     add-arg-if-exists workflow-status "${ACTION_WF_STATUS}"
