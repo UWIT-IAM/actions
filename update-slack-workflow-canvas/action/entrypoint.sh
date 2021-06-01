@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
-set -e
+# This translates environment variables into CLI
+# arguments that are provided to `run.py`, allowing
+# this app to be used as a CLI or as an image base
+# for some other image.
+#
+# However, you don't have to use this at all, you can simply
+# run the docker image with `run.py` instead of the default entrypoint.
 
-test "$ACTION_DEBUG" && set -x
+test -n "$ACTION_DEBUG" && set -x
 
 # ENV args set by action.yml
 ACTION_ARGS=""
+
+# ENV args set by action.yml, or whatever
+# is invoking the docker image.
 ACTION_COMMAND="${ACTION_COMMAND}"
 ACTION_CHANNEL="${ACTION_CHANNEL}"
 ACTION_DESCRIPTION="${ACTION_DESCRIPTION}"
@@ -12,6 +21,7 @@ ACTION_WF_STATUS="${ACTION_WF_STATUS}"
 ACTION_STEP_STATUS="${ACTION_STEP_STATUS}"
 ACTION_STEP_ID="${ACTION_STEP_ID}"
 ACTION_CANVAS="${ACTION_CANVAS}"
+ACTION_JSON="${ACTION_JSON}"
 
 CMD="python /action/run.py $ACTION_COMMAND"
 
@@ -47,6 +57,7 @@ case "$ACTION_COMMAND" in
     add-arg-if-exists canvas-id "${ACTION_CANVAS}"
     add-arg-if-exists description "${ACTION_DESCRIPTION}"
     add-arg-if-exists channel "${ACTION_CHANNEL}"
+    add-arg-if-exists json "${ACTION_JSON}"
     ;;
   create-step)
     add-arg-if-exists workflow-status "${ACTION_WF_STATUS}"

@@ -7,7 +7,23 @@ from uuid import uuid4
 
 from pydantic import BaseModel, BaseSettings, Extra, Field, SecretStr, validator
 from pytz import timezone
-import json
+
+
+def to_mixed_case(string: str):
+    """
+    foo_bar_baz becomes fooBarBaz. Based on
+    pydantic's `to_camel` utility, except without
+    the initial capital letter.
+    """
+    words = string.split("_")
+    return "".join([words[0]] + [w.capitalize() for w in words[1:]])
+
+
+class ActionBaseModel(BaseModel):
+    class Config:
+        alias_generator = to_mixed_case
+        allow_population_by_field_name = True
+        use_enum_values = True
 
 
 class WorkflowStepStatus(Enum):
@@ -145,11 +161,11 @@ class CreateMessageInput(BaseModel):
     workflow_description: Optional[str]
 
 
-class Workflow(BaseModel):
+class Workflow(ActionBaseModel):
     workflow_id: str = Field(default_factory=lambda: str(uuid4()))
     message_id: Optional[str]  # Used to update the workflow canvas
     channel_id: Optional[str]  # Used to update the workflow canvas
-    channel_name: Optional[str]
+    channel_name: Optional[str] = Field(None, alias="channel")
     execution_href: Optional[str]  # Link to actions run
     description: Optional[str]  # e.g., "Prod release workflow"
     event_name: Optional[str]  # e.g., 'push', 'pull_request'
@@ -209,3 +225,13 @@ class Workflow(BaseModel):
         )
 
         return blocks
+
+
+class WorkflowJSONInput(Workflow):
+    """
+    A subclass of the Workflow that simply marks
+    some fields as required.
+    """
+
+    description: str
+    channel_name: str

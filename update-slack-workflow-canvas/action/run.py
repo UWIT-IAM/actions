@@ -39,19 +39,33 @@ def sanitize_text(text: Optional[str]) -> Optional[str]:
     return text.strip()
 
 
-
 @click.command(help="Creates a new workflow canvas")
-@click.option('--description', required=True,
-              help="The description of your workflow. Only plain text is allowed.")
-@click.option('--canvas-id', default=str(uuid4()))
-@click.option('--channel', required=True,
-              help="The channel to send messages to.")
-def create_canvas(description: str, channel: str, canvas_id: str):
-    workflow = Workflow(
-        description=sanitize_text(description),
-        channel_name=channel,
-        workflow_id=canvas_id,
-    )
+@click.option(
+    "--description",
+    required=False,
+    help="The description of your workflow. Only plain text is allowed.",
+)
+@click.option("--canvas-id", default=str(uuid4()))
+@click.option(
+    "--json",
+    "workflow_json",
+    default=None,
+    required=False,
+    help="A JSON object containing (at least) the description field, "
+    "but that may include also the workflowId, steps, and status fields.",
+)
+@click.option("--channel", required=True, help="The channel to send messages to.")
+def create_canvas(
+    description: str, channel: str, canvas_id: str, workflow_json: Optional[str]
+):
+    if workflow_json:
+        workflow = Workflow.parse_raw(workflow_json)
+    else:
+        workflow = Workflow(
+            description=sanitize_text(description),
+            channel_name=channel,
+            workflow_id=canvas_id,
+        )
     canvas_client = WorkflowCanvasClient()
     datastore_client = DatastoreClient()
     canvas_client.create_workflow_canvas(workflow)
