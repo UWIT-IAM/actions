@@ -1,15 +1,15 @@
 from __future__ import annotations
-import os
+
+import logging
+import random
 import time
 from contextlib import contextmanager
 from uuid import uuid4
-import json
-import logging
+
+from google.cloud import datastore
 from slack_sdk import WebClient
 
-from models import ActionSettings, PostMessageInput, Workflow, WorkflowStep, WorkflowStepStatus
-from google.cloud import datastore
-import random
+from models import ActionSettings, PostMessageInput, Workflow
 
 
 class DatastoreClient:
@@ -20,25 +20,30 @@ class DatastoreClient:
         self.lock_kind = 'SlackWorkflowLock'
 
     @contextmanager
-    def lock_workflow(self, workflow_id: str):
+    def lock_workflow(self, workflow_id: str, save_on_exit: bool = False) -> Workflow:
         lock_acquired = False
         key = self.client.key(self.lock_kind, workflow_id)
-        entity = None
+        lock_entity = None
         while not lock_acquired:
-            entity = self.client.get(key) or datastore.Entity(key=key)
-            lock_id = entity.get('lock_id')
+            lock_entity = self.client.get(key) or datastore.Entity(key=key)
+            lock_id = lock_entity.get("lock_id")
             if lock_id and lock_id != self.lock_id:
                 logging.warning(f"Entity {workflow_id} is locked by instance {lock_id}")
                 jitter = random.randrange(1000, 2000)
                 timeout = jitter / 1000.0
                 time.sleep(timeout)
             else:
-                entity['lock_id'] = self.lock_id
-                self.client.put(entity)
+                lock_entity["lock_id"] = self.lock_id
+                self.client.put(lock_entity)
                 lock_acquired = True
-        yield
-        entity['lock_id'] = None
-        self.client.put(entity)
+        workflow = self.load_workflow(workflow_id)
+        try:
+            yield workflow
+            if save_on_exit:
+                self.store_workflow(workflow)
+        finally:
+            lock_entity["lock_id"] = None
+            self.client.put(lock_entity)
 
     def load_workflow(self, workflow_id: str) -> Workflow:
         key = self.get_workflow_key(workflow_id)
