@@ -25,10 +25,32 @@ ACTION_JSON="${ACTION_JSON}"
 
 CMD="python /action/run.py $ACTION_COMMAND"
 
+set -e
+
 function add-arg-if-exists() {
   if [[ -n "$2" ]]
   then
     ACTION_ARGS+=" --$1 '$(get_value_from_arg $2)'"
+  fi
+}
+
+function add-multi-arg-if-exists() {
+  # Treats the value ($2) as a
+  # a comma-separated list of values;
+  # the argument name ($1) is supplied
+  # with each repetition.
+  # Ex:
+  #    add-multi-arg-if-exists foo 'bar, baz, bop'
+  #    echo $ACTION_ARGS
+  #     --foo bar --foo baz --foo bop
+  if [[ -n "$2" ]]
+  then
+    local args=()
+    IFS=',' read -r -a args <<< "$x"
+    for val in "${args[@]}"
+    do
+      ACTION_ARGS+= "--$1 $(get_value_from_arg $2)"
+    done
   fi
 }
 
@@ -68,8 +90,8 @@ case "$ACTION_COMMAND" in
     ;;
   update-workflow)
     add-arg-if-exists workflow-status "${ACTION_WF_STATUS}"
-    add-arg-if-exists step-status "${ACTION_STEP_STATUS}"
-    add-arg-if-exists step-id "${ACTION_STEP_ID}"
+    add-multi-arg-if-exists step-status "${ACTION_STEP_STATUS}"
+    add-multi-arg-if-exists step-id "${ACTION_STEP_ID}"
     add-arg-if-exists canvas-id "${ACTION_CANVAS}"
     ;;
   add-artifact)
