@@ -5,7 +5,15 @@ from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, BaseSettings, Extra, Field, SecretStr, validator
+from pydantic import (
+    BaseModel,
+    BaseSettings,
+    Extra,
+    Field,
+    SecretStr,
+    root_validator,
+    validator,
+)
 from pytz import timezone
 
 
@@ -205,6 +213,21 @@ class Workflow(ActionBaseModel):
     status: WorkflowStatus = WorkflowStatus.initializing
     steps: List[WorkflowStep] = []
     artifacts: List[str] = []
+
+    @root_validator(pre=True)
+    def allow_canvas_id(cls, vals: Dict) -> Dict:
+        """
+        Currently, workflowId and canvasId are treated interchangeably, except in the case
+        of JSON imports; since the command name is `create-canvas`, and the `with` argument
+        if not using json accepts a `canvas-id` arugment, the json input should
+        likewise accept a `canvas_id/canvasId` argument.
+        This validator will automatically convert the json input to allow those arguments.
+        """
+        vals = dict(vals)  # Make this writeable, by default it is not.
+        canvas_id = vals.get("canvas_id", vals.get("canvasId"))
+        if canvas_id:
+            vals["workflowId"] = canvas_id
+        return vals
 
     @property
     def channel(self) -> str:

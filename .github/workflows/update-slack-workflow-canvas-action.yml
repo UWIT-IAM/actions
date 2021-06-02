@@ -69,7 +69,7 @@ jobs:
           ACTION_JSON: >
             {
               "description": "Push and test the slack workflow canvas action",
-              "workflowId": "${{ env.SLACK_CANVAS_ID }}",
+              "canvasId": "${{ env.SLACK_CANVAS_ID }}",
               "channel": "${{ env.ACTION_CHANNEL }}",
               "steps": [
                 {

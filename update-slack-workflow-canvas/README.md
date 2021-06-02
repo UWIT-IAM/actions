@@ -256,12 +256,6 @@ Outputs: [`canvas-id`](#output-canvas-id).
 You can create steps in bulk by describing your canvas in json. This is also 
 much faster, as it runs the creation and default state population in a single step.
 
-Note that because the json is described by the actual 
-[Workflow model](https://github.com/uwit-iam/actions/tree/main/workflow-templates
-/update-slack-workflow-canvas/action/models.py), 
-you must use the model fields names (or aliases), which may differ slightly than 
-their `with` counterparts.
-
 ```
 uses: uwit-iam/actions/update-slack-workflow-canas@release
 env:
