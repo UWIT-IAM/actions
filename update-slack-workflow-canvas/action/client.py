@@ -4,6 +4,7 @@ import logging
 import random
 import time
 from contextlib import contextmanager
+from typing import Dict
 from uuid import uuid4
 
 from google.cloud import datastore
@@ -100,7 +101,7 @@ class WorkflowCanvasClient:
         workflow.message_id = message_id
         workflow.channel_id = channel_id
 
-    def update_workflow_canvas(self, workflow: Workflow):
+    def get_slack_payload(self, workflow: Workflow) -> Dict:
         update_message_input = self._input_template.copy(
             update=dict(
                 text=workflow.description,
@@ -116,4 +117,8 @@ class WorkflowCanvasClient:
             by_alias=True, exclude_none=True
         )
         update_message_input["channel"] = workflow.channel
+        return update_message_input
+
+    def update_workflow_canvas(self, workflow: Workflow):
+        update_message_input = self.get_slack_payload(workflow)
         self.slack_client.chat_update(**update_message_input)

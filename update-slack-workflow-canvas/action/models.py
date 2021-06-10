@@ -219,7 +219,7 @@ class Workflow(ActionBaseModel):
         """
         Currently, workflowId and canvasId are treated interchangeably, except in the case
         of JSON imports; since the command name is `create-canvas`, and the `with` argument
-        if not using json accepts a `canvas-id` arugment, the json input should
+        if not using json accepts a `canvas-id` argument, the json input should
         likewise accept a `canvas_id/canvasId` argument.
         This validator will automatically convert the json input to allow those arguments.
         """

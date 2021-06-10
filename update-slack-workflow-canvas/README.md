@@ -13,7 +13,7 @@ to create a boilerplate canvas that will "just work."
 
 See [Github's documentation](https://docs.github.
 com/en/actions/learn-github-actions/sharing-workflows-with-your-organization#using-a-workflow-template-from-your-organization) 
-on to learn how to include this in your repository in just a few clicks! 
+to learn how to include this in your repository in just a few clicks! 
 
 
 ### Style using mrkdwn
@@ -41,7 +41,7 @@ steps, which makes the tool more helpful for everyone.
 You don't have to use actions to use the app! 
 
 Even if you are outside of UW-IT, you can use this app as a standalone docker 
-image provided you meet the following pre-requisites:
+image provided you meet the following prerequisites:
 
 - A Google Datastore service credential that is able to create and delete entities 
   in the `github-actions` namespace, using the kinds `SlackWorkflowCanvas` and 

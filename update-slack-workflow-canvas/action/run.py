@@ -276,7 +276,8 @@ def finalize_workflow(canvas_id: str, workflow_status: str):
 def get_canvas_json(canvas_id: str):
     datastore_client = DatastoreClient()
     workflow = datastore_client.load_workflow(canvas_id)
-    payload = json.dumps(workflow.canvas_payload)
+    payload = json.dumps(WorkflowCanvasClient().get_slack_payload(workflow), indent=4)
+    print(payload)
     print_action_output("canvas-json", payload)
 
 
@@ -291,6 +292,7 @@ cli.add_command(remove_step)
 cli.add_command(update_workflow)
 cli.add_command(add_artifact)
 cli.add_command(finalize_workflow)
+cli.add_command(get_canvas_json)
 
 
 if __name__ == "__main__":
