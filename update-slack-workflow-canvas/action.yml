@@ -91,3 +91,4 @@ runs:
     ACTION_STEP_STATUS: ${{ inputs.step-status }}
     ACTION_STEP_ID: ${{ inputs.step-id }}
     ACTION_CANVAS: ${{ inputs.canvas-id }}
+    ACTION_JSON: ${{ inputs.json }}
