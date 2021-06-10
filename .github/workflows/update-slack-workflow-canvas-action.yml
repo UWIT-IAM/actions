@@ -66,8 +66,20 @@ jobs:
           FINGERPRINT: ${{ steps.create-vars.outputs.fingerprint }}
       - name: Create slack workflow canvas
         env:
+          ACTION_JSON: >
+            {
+              "description": "Push and test the slack workflow canvas action",
+              "canvasId": "${{ env.SLACK_CANVAS_ID }}",
+              "channel": "${{ env.ACTION_CHANNEL }}",
+              "steps": [
+                {
+                  "stepId": "create-from-json",
+                  "description": "Create a workflow and step from json",
+                  "status": "succeeded"
+                }
+              ]
+            }
           ACTION_COMMAND: create-canvas
-          ACTION_DESCRIPTION: "Push and test the slack workflow canvas action"
         run: ./$ACTION_DIR/run-from-env.sh
       - name: 'Create step in slack canvas & generate step id'
         env:
@@ -111,8 +123,12 @@ jobs:
       - name: 'Update canvas: step with generated id succeeded'
         env:
           ACTION_COMMAND: update-workflow
-          ACTION_STEP_ID: ${{ steps.named-step-test.outputs.step-id }}
-          ACTION_STEP_STATUS: succeeded
+          ACTION_STEP_ID: >
+            ${{ steps.named-step-test.outputs.step-id }},
+            push-action-image
+          ACTION_STEP_STATUS: >
+            succeeded,
+            in progress
         run: $ACTION_DIR/run-from-env.sh
       - name: 'Update canvas: step push-action-image in progress'
         env:
@@ -135,9 +151,16 @@ jobs:
         env:
           ACTION_COMMAND: add-artifact
           ACTION_DESCRIPTION: >
-            *Image*
+            *Image*:
             <https://${{ env.GHCR_IMAGE_REPO }}:${{ steps.create-vars.outputs.fingerprint }}
             | ${{ steps.create-vars.outputs.fingerprint }}>
+        run: $ACTION_DIR/run-from-env.sh
+      - name: 'Update canvas: Remove succeeded steps'
+        if: always()
+        env:
+          ACTION_COMMAND: remove-step
+          ACTION_STEP_ID: '*'
+          ACTION_STEP_STATUS: 'succeeded'
         run: $ACTION_DIR/run-from-env.sh
       - if: github.ref == 'refs/heads/main'
         name: 'Create step in slack canvas with id: prepare-for-release'
@@ -266,7 +289,7 @@ jobs:
         env:
           ACTION_COMMAND: finalize-workflow
           ACTION_WF_STATUS: failed
-        run: $ACTION_DIR/run-from-env.sh
+        run: $ACTION_DIR/run-from-env.sh --build
       - if: success()
         env:
           ACTION_COMMAND: finalize-workflow

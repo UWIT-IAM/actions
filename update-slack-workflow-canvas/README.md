@@ -6,10 +6,21 @@ carried throughout an entire Actions workflow.
 
 ![Example slack output created by this action](example-screenshot.png)
 
+If you are part of the [UWIT-IAM organization](https://github.com/uwit-iam/), 
+you can opt to use the 
+[workflow template](https://github.com/UWIT-IAM/.github/blob/main/workflow-templates/slack-workflow-canvas.yml) 
+to create a boilerplate canvas that will "just work."
+
+See [Github's documentation](https://docs.github.
+com/en/actions/learn-github-actions/sharing-workflows-with-your-organization#using-a-workflow-template-from-your-organization) 
+to learn how to include this in your repository in just a few clicks! 
+
 
 ### Style using mrkdwn
 
-No, not markdown, mrkdwn. This is a Slack thing. It's limited, but functional.
+No, not markdown, [mrkdwn](https://api.slack.com/reference/surfaces/formatting#basics). 
+
+This is a Slack thing. It's limited, but functional.
 
 ### One message per workflow execution
 
@@ -27,21 +38,34 @@ steps, which makes the tool more helpful for everyone.
 
 ### Standalone app can be used however you like
 
-You don't have to use actions to use the app! You can use the docker container and 
-bring your own bot token. (Docker container currently requires access to the IAM gcr 
-repository; if there is external interest I am happy to wire this up to Github as well.)
+You don't have to use actions to use the app! 
+
+Even if you are outside of UW-IT, you can use this app as a standalone docker 
+image provided you meet the following prerequisites:
+
+- A Google Datastore service credential that is able to create and delete entities 
+  in the `github-actions` namespace, using the kinds `SlackWorkflowCanvas` and 
+  `SlackWorkflowLock`. **Please feel free to submit a PR to support other temporary 
+  data storage backends**
+- A slack bot token that can create and edit messages in the channel(s) that you 
+  will be using. 
+
+You can use the docker container and bring your own bot token. Likewise, you can use
+the default entrypoint to configure everything via environment variable, or override
+the entrypoint to use the CLI `run.py` instead.
 
 
 ### Safe for parallel jobs
 
 It is possible to use this action in jobs that run in parallel. This action comes
 with a locking mechanism so that only one job can "check out" the workflow canvas at
-a time to update it.
+a time to update it. Note: This is currently not optional, and requires access to 
+Github Datastore. (Repos in the UWIT-IAM organization get this automatically).
 
 ### Flexible use cases
 
-You can define your entire workflow at the beginning, or add steps ad-hoc as your 
-workflow progresses. Updates are atomic within the context of a given workflow 
+You can define your entire workflow at the beginning, or add or remove steps ad-hoc as 
+your workflow progresses. 
 
 For available commands, see [commands](#command).
 
@@ -49,14 +73,20 @@ For available commands, see [commands](#command).
 
 (alphabetical)
 
+<a id='input-canvas-id'></a>
 ### `canvas-id`
-**REQUIRED**. This must be a pseudo-unique identifier that links your change to the 
-running workflows. If not provided, it will be randomly generated and output from 
-the `create-canvas` command.
+**USUALLY REQUIRED**. This must be a pseudo-unique identifier that links your change to 
+the running workflows. If not provided, it can be randomly generated and output from 
+the `create-canvas` command. 
+
+Exception: You do not need to provide this when you run the `create-canvas` command, 
+it will be auto-generated for you, and can be accessed in the 
+[output](#output-canvas-id).
 
 The id only needs to be
 unique within the scope of the time that workflow is running; it's ok if the id is
-repeated on future runs. A safe bet is `${{ github.run_id }}.${{ github.run_number }}`.
+repeated on future runs. A safe bet is 
+`${{ github.run_id }}.${{ github.run_number }}`, but really, any string will do.
 
 ### `channel`
 **REQUIRED** if command is `create-canvas`**, otherwise ignored. Sets the
@@ -66,29 +96,15 @@ If you want to send messages to more than one channel per workflow, you need to
 maintain more than one canvas.
 
 ### `command`
-**Required** One of the available action commands:
+**Required** One of the [available action commands](#available-commands).
 
-- `create-canvas`
-  - Creates a workflow canvas to be used throughout your workflow.
-    This canvas is deterministic, so can safely be stored and later re-used
-    at any time.
-- `create-step`
-  - Adds a step to workflow canvas. A step must be added in order for its state
-    to be updateable. 
-- `update-workflow`
-  - Updates the status of the workflow and/or one of its steps.
-- `add-artifact`
-  - Adds static `mrkdwn` text as a context block element to the bottom of the canvas.
-    A maximum of 9 artifacts is supported; more than that will throw an error. 
-    Artifacts will be presented as tiny code-block tags at the bottom of the 
-    workflow canvas. Once added, an artifact cannot be removed or changed.
-- `finalize-workflow` marks the workflow as COMPLETED (regardless of other status) 
-  and deletes the datastore records used to maintain the canvas. The slack message 
-  will no longer be editable, and its output will be frozen. Please ensure this is 
-  always called at the end of your workflow to avoid storing unnecessary data. Any 
-  data in the `github-actions` namespace of our Datastore is subject to removal at 
-  any time.
-  
+Any command that creates or updates the canvas will also output a `lock-id`, which 
+can be useful for debugging, if you find that locks are not breaking as they should.
+
+All commands except for `create-canvas` require the 
+[`input-canvas-id`](#input-canvas-id) argument.
+
+
 ### `description`
 **Required** if command is `add-artifact`, `create-workflow`.
 **Optional** if command is `create-step`, `update-workflow`.
@@ -136,6 +152,7 @@ never in a state of 'not started,' therefore defaulting to 'initializing'.
 
 (alphabetical)
 
+<a id='output-canvas-id'></a>
 ### `canvas-id`
 
 From `create-workflow`
@@ -162,81 +179,11 @@ used to update the workflow step.
 The following is an annotated example that demonstrates this action's features and 
 how you might want to apply them.
 
-```yaml
-env:
-  # This environment variable supplies the id to all uses without you having
-  # to think about it.
-  SLACK_CANVAS_ID: ${{ github.run_id }}.${{ github.run_number }}
-  # Always required; this secret is available to all UWIT-IAM repositories.
-  SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
-steps:
-  # The create-canvas command creates a skeleton of the message in slack,
-  # initializes references, and creates a SLACK_WORKFLOW_CONTEXT environment variable
-  # that is accessible in all future steps.
-  # The environment variable can also be referenced as the 'canvas' output:
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    id: initial-workflow-step   # Optional, if you want to use the 'outputs' context
-    with:
-      command: create-canvas
-      description: "Dev release workflow"
-  # The initialize-step command adds a step to an existing workflow.
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    with:
-      command: create-step
-      step-id: build-images
-  # The update-workflow step will update the status of the workflow and/or any 
-  # step (by id).
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    with:
-      command: update-workflow
-      workflow-status: in progress
-      step-status: in progress
-      step-id: build-images
-      # An alternative way to provide the canvas, if you don't want to use the
-      # environment variable
-      canvas-id: ${{ steps.create-canvas.outputs.canvas-id }}
-  - run: docker build -t my-image .
-    id: build-image
-  # If the previous step (docker build . . .) fails, update the step status to 
-  # reflect that.
-  - if: failure()
-    uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    step-status: failed
-    step-id: build-images
-  # Otherewise, we continue as normal.
-  # Perhaps our `build-image` step also runs tests which generate a coverage report.
-  # We can attach the report to our canvas like this. 
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    with:
-      command: add-artifact
-      description: >
-        Coverage: 
-        <${{ steps.build-image.outputs.coverage-report-url }}
-        | ${{ steps.build-image.outputs.coverage-percent }}>
-  # . . . update the status to reflect success
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    with:
-      command: update-workflow
-      step-status: succeeded
-      step-id: build-images
-  # At the end of your workflow, if everything succeeds,
-  # update the workflow status
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    with:
-      command: update-workflow
-      workflow-status: succeeded
-  - uses: UWIT-IAM/actions/update-slack-workflow-canvas
-    if: failure()
-    with:
-      command: update-workflow
-      workflow-status: failed
-  # Always clean up at the end of the workflow to avoid
-  # storing unnecessary data. This "freezes" the message.
-  - uses: UWIT-IAM/actions/update-slack-workfklow-canvas
-    if: always()
-    with:
-      command: finalize-workflow
-```
+To see an example workflow, complete with annotations, that actually runs, you can 
+view the public template in the 
+[UWIT-IAM/.github](https://www.github.com/UWIT-IAM/.github/tree/main/workflow-templates) 
+repository. Note that the template will only work as-is for repositories in the 
+UWIT-IAM orgnization.
 
 ## Development
 
@@ -289,3 +236,131 @@ of the interface to Actions.
 
 If you don't like it, you can always run with the entrypoint `python run.py` instead,
 and then use CLI args instead of environment variables.
+
+
+## Available Commands
+
+### `create-canvas`
+
+Creates a workflow canvas to be used throughout your workflow. You have two options
+available for creating canvases: 
+
+- If you have more than a couple of steps in your workflow, it's easier to [create your 
+  workflow using JSON](#example-using-json).
+- Otherwise, it's simpler to just supply the `description` and (optionally) 
+
+Outputs: [`canvas-id`](#output-canvas-id).
+
+#### Example using JSON
+
+You can create steps in bulk by describing your canvas in json. This is also 
+much faster, as it runs the creation and default state population in a single step.
+
+```
+uses: uwit-iam/actions/update-slack-workflow-canas@release
+env:
+  SLACK_CANVAS_ID: integ/${{ github.run_id }}/${{ github.run_number }}
+with:
+  command: create-canvas
+  json: >
+    {
+      "description": "Integration tests for ${{ github.repository }}",
+      "workflowId": "${{ env.SLACK_CANVAS_ID }}",
+      "channel": "#workflow-notifications",
+      "status": "in progress"
+      "steps": [
+        {
+          "stepId": "build images",
+          "status": "in progress",
+          "description": "Build docker images from change ${{ github.sha }}",
+        }, {
+          "stepId": "run tests",
+          "description": "Run all the tests!",
+        }
+      ]
+    }
+```
+
+### `create-step`
+
+
+Adds a step to workflow canvas.
+This can be done at any time until the workflow is finalized, allowing you to
+dynamically add steps in branching workflows.
+
+Requires arguments: [`step-id`](#step-id), [`description`](#description)
+
+
+### `remove-step`
+Removes one or more steps from the workflow canvas. This can be helpful to clean up
+steps that aren't interesting once your workflow is complete. (Thanks @krlowe for 
+the suggestion).
+
+Requires argument: `step-id`, which can be one or more (comma-separated) step ids; 
+if an id cannot be found, a warning will be logged, but the workflow will continue 
+without error. You can also supply the value `'*'` \[sic] to strip _all_ steps, 
+leaving only _artifacts_ behind. Therefore, if you choose to use this command, 
+it is recommended to store enough 
+context as an artifact on your canvas that any changes that may have resulted from
+your workflow are easily traced.
+
+Accepts argument: [`step-status`](#step-status). You may provide a (comma-separated) 
+list of defined statuses to filter by; only steps that match the filter will be 
+removed. (This can be useful if you want to keep a step that failed on a canvas, for 
+instance.)
+
+_Example: Remove all steps that succeeded_
+```
+with:
+  command: remove-step
+  step-id: '*'
+  step-status: succeeded
+```
+
+
+### `update-workflow`
+
+With this command you can update the overall workflow status and/or any number of 
+step statuses. (You must include exactly the same number of 
+[`step-status`](#step-status) values as [`step-id`](#step-id) values).
+
+Example: 
+
+```
+if: failure()
+with:
+  command: update-workflow
+  workflow-status: failed
+  step-id: deployment-validation, rollback
+  step-status: failed, in progress
+```
+
+### `add-artifact`
+
+_Artifacts_ are intended to be write-once, read-forever items on your canvas. Once 
+added, an artifact cannot be updated or removed. When designing your canvas, consider
+which information will be needed only during execution, and which information will 
+be needed for debugging later. 
+
+Requires argument: `description`
+This value can be any text/mrkdwn value that will render inside a block quote `> ` in 
+slack. 
+
+There is currently a limit of **9** artifacts per workflow, this ceiling is bound by 
+Slack's API, which limits this block type to 10, reserving 1 for application use. 
+However, you may supply multiple resource links in a single artifact, 
+so find the balance that works best for you.
+
+### `finalize-workflow`
+
+**Recommended at the end of all workflows**. Marks the workflow as `COMPLETED`, 
+regardless of whether it succeeded or failed, and also deletes the stored 
+metadata that can be used to update the canvas. This "locks" the message displayed 
+in Slack.
+
+Omit this at your own risk, and certainly don't depend on any data that might 
+persist if you decide to omit this command from your workflow.
+
+As long as this command goes un-called for a given canvas-id, the canvas is 
+subject to tampering by any bot token with access to the same channel, making it 
+possible to rewrite history as seen from Slack. 
