@@ -142,7 +142,7 @@ def create_step(
     required=False,
     default=None,
     multiple=True,
-    type=click.Choice(WorkflowStatus.values()),
+    type=click.Choice(WorkflowStepStatus.values()),
     help="Optional, can be supplied multiple times. "
     "Only removes a step if it matches the status provided.",
 )
