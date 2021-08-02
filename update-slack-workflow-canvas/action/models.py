@@ -229,7 +229,7 @@ class Workflow(ActionBaseModel):
             vals["workflowId"] = canvas_id
         return vals
 
-    @property
+    @property  # TODO Why are there two fields for channel?!
     def channel(self) -> str:
         return self.channel_id or self.channel_name
 

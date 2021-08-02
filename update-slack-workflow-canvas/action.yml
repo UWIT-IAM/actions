@@ -58,8 +58,8 @@ inputs:
   json:
     required: false
     description: >
-      Only used with the `create-canvas` command; the json to use to 
-      create the canvas; must include `channel`, `canvasId` (or `workflowId`), 
+      Only used with the `create-canvas` command; the json to use to
+      create the canvas; must include `channel`, `canvasId` (or `workflowId`),
       and may include `steps`.
 
 outputs:
