@@ -55,7 +55,7 @@ def sanitize_text(text: Optional[str]) -> Optional[str]:
     help="A JSON object containing (at least) the description field, "
     "but that may include also the workflowId, steps, and status fields.",
 )
-@click.option("--channel", required=True, help="The channel to send messages to.")
+@click.option("--channel", required=False, default=None, help="The channel to send messages to.")
 def create_canvas(
     description: str, channel: str, canvas_id: str, workflow_json: Optional[str]
 ):
@@ -63,11 +63,15 @@ def create_canvas(
         workflow = Workflow.parse_raw(workflow_json)
         logging.info(workflow.dict())
     else:
-        workflow = Workflow(
-            description=sanitize_text(description),
-            channel_name=channel,
-            workflow_id=canvas_id,
-        )
+        args = {
+            'description': sanitize_text(description),
+            'channel_name': channel,
+        }
+        # canvas_id has a default generator, so should only
+        # be included if it is not blank.
+        if canvas_id:
+            args['workflow_id'] = 'canvas_id'
+        workflow = Workflow(**args)
     canvas_client = WorkflowCanvasClient()
     datastore_client = DatastoreClient()
     canvas_client.create_workflow_canvas(workflow)
@@ -142,7 +146,7 @@ def create_step(
     required=False,
     default=None,
     multiple=True,
-    type=click.Choice(WorkflowStepStatus.values()),
+    type=click.Choice(WorkflowStatus.values()),
     help="Optional, can be supplied multiple times. "
     "Only removes a step if it matches the status provided.",
 )
