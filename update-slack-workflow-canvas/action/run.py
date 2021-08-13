@@ -146,7 +146,7 @@ def create_step(
     required=False,
     default=None,
     multiple=True,
-    type=click.Choice(WorkflowStatus.values()),
+    type=click.Choice(WorkflowStepStatus.values()),
     help="Optional, can be supplied multiple times. "
     "Only removes a step if it matches the status provided.",
 )
@@ -188,7 +188,7 @@ def remove_step(canvas_id: str, step_ids: str, status_filter: List[WorkflowStepS
     "statuses",
     default=None,
     multiple=True,
-    type=click.Choice(WorkflowStatus.values()),
+    type=click.Choice(WorkflowStepStatus.values()),
     help="The new status for the step. You may supply this multiple times to "
     "update multiple steps at once.",
 )
