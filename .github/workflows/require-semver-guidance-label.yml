@@ -1,0 +1,58 @@
+on:
+  pull_request:
+    paths:
+      - require-semver-guidance-label/*
+      - .github/workflow/require-semver-guidance-label.yml
+    types: [opened, labeled, unlabeled, edited, reopened]
+
+  push:
+    branches:
+      - main
+      - dry-run
+    paths:
+      - require-semver-guidance-label/*
+
+env:
+  action_name: require-semver-guidance-label
+
+jobs:
+  validate-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+      # For pull requests, we run the docker image, instead of
+      # an already-merged code.
+      - run: |
+          docker build -t ${action_name} ./${action_name}
+          docker run ${action_name} \
+            --github-repository ${{ github.repository }} \
+            --github-ref ${{ github.ref }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }}
+  validate-release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-ecosystem/action-get-merged-pull-request@v1.0.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        id: pr
+
+      # Uses the version that was just released, to validate the
+      # actual action setup.
+      - uses: uwit-iam/actions/require-semver-guidance-label@main
+        with:
+          pr-number: ${{ steps.pr.outputs.number }}
+        id: semver
+
+      # Releases the new actions version based on the guidance provided
+      # by its own pull request.
+      - name: Github Tag Bump
+        uses: anothrNick/github-tag-action@1.34.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          RELEASE_BRANCHES: main,dry-run
+          DRY_RUN: true # TODO: ${{ endsWith('/dry-run', github.ref) }}
