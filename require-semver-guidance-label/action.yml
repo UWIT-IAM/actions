@@ -1,0 +1,24 @@
+name: Ensure a pull request has a "semver-guidance" label.
+author: '@tomthorogood'
+description: >
+  Requires that a pull request have a label in the format
+  of 'semver-guidance:foo', where 'foo' can be an explicit
+  version (e.g., 1.2.3) or a guidance level, e.g.:
+  prerelease, patch, minor, major.
+inputs:
+  github-token:
+    description: "The github token."
+    required: true
+
+outputs:
+  pr-number:
+    description: The PR number associated with this change
+  guidance:
+    description: The version guidance derived from the PR labels.
+
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - '--github-token'
+    - ${{ inputs.github-token }}
