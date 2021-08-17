@@ -72,6 +72,8 @@ jobs:
       - uses: uwit-iam/actions/require-semver-guidance-label@main
         env:
           GITHUB_PR_NUMBER: ${{ steps.pr.outputs.number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         id: semver
 
       # Releases the new actions version based on the guidance provided
