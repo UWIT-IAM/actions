@@ -20,6 +20,9 @@ on:
       # we should -not- automatically build preview branches for all
       # pull requests).
       - main
+    paths:
+      - update-slack-workflow-canvas/*
+      - .github/workflows/update-slack-workflow-canvas-action.yml
 
 env:
   ACTION_DIR: update-slack-workflow-canvas

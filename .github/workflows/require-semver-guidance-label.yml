@@ -2,7 +2,7 @@ on:
   pull_request:
     paths:
       - require-semver-guidance-label/*
-      - .github/workflow/require-semver-guidance-label.yml
+      - .github/workflows/require-semver-guidance-label.yml
     types: [opened, labeled, unlabeled, edited, reopened, synchronize]
 
   push:
