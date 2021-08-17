@@ -1,0 +1,87 @@
+on:
+  pull_request:
+    paths:
+      - require-semver-guidance-label/*
+      - .github/workflow/require-semver-guidance-label.yml
+    types: [opened, labeled, unlabeled, edited, reopened, synchronize]
+
+  push:
+    branches:
+      - main
+      - dry-run
+    paths:
+      - require-semver-guidance-label/*
+
+env:
+  action_name: require-semver-guidance-label
+
+jobs:
+  validate-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+      # For pull requests, we run the docker image, instead of
+      # an already-merged code.
+      - run: |
+          docker build -t ${action_name} ./${action_name}
+          docker run ${action_name} \
+            --github-repository ${{ github.repository }} \
+            --github-ref ${{ github.ref }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }}
+        id: run-action
+
+  release-dry-run:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dry-run'
+    runs-on: ubuntu-latest
+    steps:
+      # Uses the version that was just released, to validate the
+      # actual action setup.
+      - uses: uwit-iam/actions/require-semver-guidance-label@dry-run
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_PR_NUMBER: 2  # An old PR that has guidance set on it for testing
+        id: semver
+
+      # Releases the new actions version based on the guidance provided
+      # by the release's own pull request.
+      - name: Bump uwit-iam/actions release version
+        uses: hennejg/github-tag-action@v4.3.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_branches: main
+          tag_prefix: ''
+          default_bump: ${{ steps.semver.outputs.guidance }}
+          dry_run: true
+          create_annotated_tag: true
+
+  validate-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-ecosystem/action-get-merged-pull-request@v1.0.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        id: pr
+
+      # Uses the version that was just released, to validate the
+      # actual action setup.
+      - uses: uwit-iam/actions/require-semver-guidance-label@main
+        env:
+          GITHUB_PR_NUMBER: ${{ steps.pr.outputs.number }}
+        id: semver
+
+      # Releases the new actions version based on the guidance provided
+      # by the release's own pull request.
+      - name: Bump uwit-iam/actions release version
+        uses: hennejg/github-tag-action@v4.3.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_branches: main
+          tag_prefix: ''
+          default_bump: ${{ steps.semver.outputs.guidance }}
+          dry_run: false
+          create_annotated_tag: true
