@@ -1,0 +1,27 @@
+on:
+  push:
+    branches: test-notification-canvas-composite-actions
+
+env:
+  canvas_json: '{ "channel": "#iam-bot-sandbox", "description": "Test notification canvas composite actions", "steps": [ { "description": "foo" } ] }'
+  SLACK_BOT_TOKEN: ${{ secrets.ACTIONS_SLACK_BOT_TOKEN }}
+  GCLOUD_TOKEN: ${{ secrets.IAM_GCR_TOKEN }}
+
+jobs:
+  test-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/setup-gcloud@v0.2.1
+        with:
+          service_account_key: "${{ secrets.GCR_TOKEN }}"
+          export_default_credentials: true
+      - uses: uwit-iam/actions/set-up-slack-notification-canvas@test-notification-canvas-composite-actions
+        with:
+          json: ${{ env.canvas_json }}
+      - uses: uwit-iam/actions/update-slack-workflow-canvas@test-notification-canvas-composite-actions
+        with:
+          command: add-artifact
+          description: bar
+      - uses: uwit-iam/actions/finalize-slack-notification-canvas@test-notification-canvas-composite-actions
+        with:
+          workflow-status: succeeded
