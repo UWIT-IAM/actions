@@ -1,0 +1,45 @@
+name: Finalize and clean up the notification canvas
+
+description: Finalizes the workflow status and removes successful steps.
+
+inputs:
+  remove-steps:
+    required: true
+    description: >
+      Enter the steps you want to remove, or '*' for all steps,
+      leaving only artifacts on the canvas. Default is to
+      remove all steps matching the 'not started' or 'succeeded' status,
+      but to leave failures for debugging.
+    default: '*'
+  step-status-filter:
+    required: true
+    description: >
+      Default is to remove all 'succeeded' and 'not started' steps. Separate statuses
+      by comma. You  may override this to leave additional steps on the canvas.
+    default: not started, succeeded
+  workflow-status:
+    required: true
+    description: 'One of: succeeded, failed'
+  gcloud-token:
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - uses: google-github-actions/setup-gcloud@v0.2.1
+      with:
+        service_account_key: "${{ inputs.gcloud-token || env.GCLOUD_TOKEN }}"
+        export_default_credentials: true
+    - uses: uwit-iam/actions/update-slack-workflow-canvas@0.1.4
+      with:
+        command: update-workflow
+        workflow-status: ${{ inputs.workflow-status }}
+
+    - uses: uwit-iam/actions/update-slack-workflow-canvas@0.1.4
+      with:
+        command: remove-step
+        step-id: ${{ inputs.remove-steps }}
+        step-status: ${{ inputs.step-status-filter }}
+    - uses: uwit-iam/actions/update-slack-workflow-canvas@0.1.4
+      with:
+        command: finalize-workflow

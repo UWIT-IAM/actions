@@ -1,0 +1,32 @@
+name: Set up a Slack Notification Canvas
+description: >
+  Creates a notification canvas and sets the
+  SLACK_CANVAS_ID environment variable. This
+  action requires JSON input!
+
+inputs:
+  json:
+    required: true
+    description: >
+      The JSON scaffolding for your canvas. See update-slack-workflow-canvas/README.md.
+  gcloud-token:
+    required: false
+
+outputs:
+  canvas-id:
+    value: ${{ steps.create-canvas.outputs.canvas-id }}
+
+runs:
+  using: composite
+  steps:
+    - uses: google-github-actions/setup-gcloud@v0.2.1
+      with:
+        service_account_key: "${{ inputs.gcloud-token || env.GCLOUD_TOKEN }}"
+        export_default_credentials: true
+    - uses: uwit-iam/actions/update-slack-workflow-canvas@0.1.4
+      with:
+        command: create-canvas
+        json: "${{ inputs.json }}"
+      id: create-canvas
+    - run: echo "SLACK_CANVAS_ID=${{ steps.create-canvas.outputs.canvas-id }}" >> $GITHUB_ENV
+      shell: bash
