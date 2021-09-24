@@ -45,11 +45,15 @@ runs:
       run: |
         set -x
         poetry version $BASE_VERSION
-        poetry version ${{ inputs.version-guidance }}
-        if [[ -n "$(git diff)" ]]
+        guidance="${{ inputs.version-guidance }}"
+        if [[ $guidance != "no-bump" ]]
         then
-          new_version=$(poetry version -s)
-          echo ::set-output name=new-version::$new_version
+          poetry version ${{ inputs.version-guidance }}
+          if [[ -n "$(git diff)" ]]
+          then
+            new_version=$(poetry version -s)
+            echo ::set-output name=new-version::$new_version
+          fi
         fi
       id: update-version
       shell: bash
