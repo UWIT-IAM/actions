@@ -1,0 +1,65 @@
+name: Update PR branch version from base branch
+
+inputs:
+  version-guidance:
+    description: The argument to supply to `poetry version`
+    required: true
+  github-token:
+    description: >
+      The github token you want to use, if not alrady set in your
+      environment as GITHUB_TOKEN.
+    required: false
+
+
+outputs:
+  new-version:
+    description: The next semver version
+    value: ${{ steps.update-version.outputs.new-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Python Poetry Action
+      uses: abatilo/actions-poetry@v2.1.0
+
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.base.ref }}
+        token: ${{ env.github_token }}
+      env:
+        github_token: ${{ inputs.github_token || env.GITHUB_TOKEN }}
+
+    - run: echo ::set-output name=version::$(poetry version -s)
+      id: get-version
+      shell: bash
+
+    - uses: actions/checkout@v2
+      with:
+        token: ${{ env.github_token }}
+      env:
+        github_token: ${{ inputs.github_token || env.GITHUB_TOKEN }}
+
+    - name: Update PR version to base_version+guidance
+      env:
+        BASE_VERSION: ${{ steps.get-version.outputs.version }}
+      run: |
+        set -x
+        poetry version $BASE_VERSION
+        poetry version ${{ inputs.version-guidance }}
+        if [[ -n "$(git diff)" ]]
+        then
+          new_version=$(poetry version -s)
+          echo ::set-output name=new-version::$new_version
+        fi
+      id: update-version
+      shell: bash
+
+    - uses: EndBug/add-and-commit@v7
+      env:
+        version: ${{ steps.update-version.outputs.new-version }}
+      with:
+        add: pyproject.toml
+        default_author: github_actions
+        pull_strategy: NO-PULL
+        push: ${{ steps.update-version.outputs.new-version &&  true || false }}
+        message: "[Bot] Update version to ${{ env.version }}"
