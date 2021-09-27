@@ -27,7 +27,7 @@ runs:
         ref: ${{ github.event.pull_request.base.ref }}
         token: ${{ env.github_token }}
       env:
-        github_token: ${{ inputs.github_token || env.GITHUB_TOKEN }}
+        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
     - run: echo ::set-output name=version::$(poetry version -s)
       id: get-version
@@ -37,7 +37,7 @@ runs:
       with:
         token: ${{ env.github_token }}
       env:
-        github_token: ${{ inputs.github_token || env.GITHUB_TOKEN }}
+        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
     - name: Update PR version to base_version+guidance
       env:
