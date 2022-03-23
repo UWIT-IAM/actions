@@ -66,6 +66,7 @@ runs:
         new_version: ${{ steps.update-version.outputs.new-version }}
         base_branch: ${{ github.event.pull_request.base.ref }}
         guidance: ${{ inputs.version-guidance }}
+      shell: bash
 
 
     - uses: EndBug/add-and-commit@v7
