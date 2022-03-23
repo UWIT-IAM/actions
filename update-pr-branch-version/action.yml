@@ -6,7 +6,7 @@ inputs:
     required: true
   github-token:
     description: >
-      The github token you want to use, if not alrady set in your
+      The github token you want to use, if not already set in your
       environment as GITHUB_TOKEN.
     required: false
 
@@ -24,6 +24,8 @@ runs:
 
     - uses: actions/checkout@v2
       with:
+        # Checks out the branch that PR wants to merge into,
+        # (i.e., the default branch).
         ref: ${{ github.event.pull_request.base.ref }}
         token: ${{ env.github_token }}
       env:
@@ -34,6 +36,8 @@ runs:
       shell: bash
 
     - uses: actions/checkout@v2
+      # Checks out the PR branch to update the version based
+      # on the default branch version.
       with:
         token: ${{ env.github_token }}
       env:
@@ -51,9 +55,18 @@ runs:
         fi
         new_version=$(poetry version -s)
         echo ::set-output name=new-version::$new_version
-
       id: update-version
       shell: bash
+
+    - run: >
+        echo "::notice::Applied version ${base_version} (from branch '${base_branch}')
+        and updated it to ${new_version} using ${guidance}-level guidance."
+      env:
+        base_version: ${{ steps.get-version.outputs.version }}
+        new_version: ${{ steps.update-version.outputs.new-version }}
+        base_branch: ${{ github.event.pull_request.base.ref }}
+        guidance: ${{ inputs.version-guidance }}
+
 
     - uses: EndBug/add-and-commit@v7
       env:
