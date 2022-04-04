@@ -1,0 +1,32 @@
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        required: true
+        description: >
+          The full gcr.io path to your repository,
+          e.g., gcr.io/your-gcloud-project/your-app.
+          The default will fail.
+        default: gcr.io/uwit-mci-iam/your-app-name
+      time-ago:
+        required: true
+        default: '2 years ago'
+        description: >
+          Images before this date will be deleted. Use a semantic argument
+          like "yesterday" or "1 year ago". The default is "2 years ago".
+
+jobs:
+  prune-gcr:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ inputs.repository }}
+      cancel-in-progress: true
+    timeout-minutes: 360
+    steps:
+      - uses: UWIT-IAM/actions/configure-gcloud-docker@0.1
+        with:
+          gcloud-token: ${{ secrets.GCR_TOKEN }}
+      - uses: UWIT-IAM/actions/prune-gcr-images@0.1
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          time-ago: ${{ github.event.inputs.time-ago }}

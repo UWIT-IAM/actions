@@ -1,0 +1,27 @@
+
+inputs:
+  time-ago:
+    default: '2 years ago'
+    description: >
+      Provide a semantic argument for how old images
+      can be before they are pruned. The default is `2 years ago`.
+      The argument must be parseable by the unix `date` command.
+  repository:
+    description:
+      Your gcr.io repository; your input must include the full
+      address, e.g., 'gcr.io/your-gcloud-project-name/your-repo'.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: get-prune-date
+      run: |
+        target=$(date -d "${{ inputs.time-ago }}" +"%Y-%m-%d")
+        echo ::set-output name=date::${target}
+      shell: bash
+    - id: prune-images
+      env:
+        cutoff_date: ${{ steps.get-prune-data.outputs.date }}
+        repo: ${{ inputs.repository }}
+      run: ./prune-gcr.sh ${repo} ${cutoff_date}
