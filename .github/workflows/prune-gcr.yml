@@ -19,7 +19,7 @@ jobs:
   prune-gcr:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ inputs.repository }}
+      group: ${{ github.event.inputs.repository }}
       cancel-in-progress: true
     timeout-minutes: 360
     steps:
