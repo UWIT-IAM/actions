@@ -22,7 +22,7 @@ runs:
       shell: bash
     - id: prune-images
       env:
-        cutoff_date: ${{ steps.get-prune-data.outputs.date }}
+        cutoff_date: ${{ steps.get-prune-date.outputs.date }}
         repo: ${{ inputs.repository }}
-      run: ${{ github.action_path }}/prune-gcr.sh ${repo} ${cutoff_date}
+      run: ${{ github.action_path }}/prune-gcr.sh ${{ env.repo }} ${{ env.cutoff_date }}
       shell: bash
