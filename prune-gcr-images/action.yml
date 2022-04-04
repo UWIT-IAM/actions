@@ -25,3 +25,4 @@ runs:
         cutoff_date: ${{ steps.get-prune-data.outputs.date }}
         repo: ${{ inputs.repository }}
       run: ./prune-gcr.sh ${repo} ${cutoff_date}
+      shell: bash
