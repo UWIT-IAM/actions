@@ -20,5 +20,5 @@ jobs:
       - uses: actions/checkout@v3
       - uses: UWIT-IAM/actions/configure-gcloud-docker@v0.1
         with: 
-          gcloud-token: ${{ secrets.IAM_GCR_TOKEN }}
+          gcloud-token: ${{ secrets.GCR_TOKEN }}
 ```
