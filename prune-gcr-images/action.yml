@@ -11,6 +11,11 @@ inputs:
       Your gcr.io repository; your input must include the full
       address, e.g., 'gcr.io/your-gcloud-project-name/your-repo'.
     required: true
+  minimum-images:
+    description: >
+      The number of images you want to keep, even if they are older than
+      the "time ago" argument. The default is 10.
+    default: 10
 
 runs:
   using: composite
@@ -21,8 +26,9 @@ runs:
         echo ::set-output name=date::${target}
       shell: bash
     - id: prune-images
-      env:
-        cutoff_date: ${{ steps.get-prune-date.outputs.date }}
-        repo: ${{ inputs.repository }}
-      run: ${{ github.action_path }}/prune-gcr.sh ${{ env.repo }} ${{ env.cutoff_date }}
+      run: |
+        ${{ github.action_path }}/prune-gcr.sh \
+          -m ${{ inputs.minimum-images }} \
+          -r ${{ inputs.repository }} \
+          -d ${{ steps.get-prune-date.outputs.date }}
       shell: bash
