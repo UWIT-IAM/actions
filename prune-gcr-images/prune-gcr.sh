@@ -91,16 +91,18 @@ function parse_args {
 get_total_image_count() {
   # Only count unique digests to make sure we don't accidentally
   # delete references to digests we intend to keep.
-  gcloud container images list-tags ${repository} --limit=99999 \
+  gcloud container images list-tags ${repository} -q --limit=99999 \
+   | tail -n +2 \
    | cut -f1 -d' ' | uniq \
    | wc -l | sed 's| ||g'
 }
 
 
 get_list_of_digests(){
-  gcloud container images list-tags ${repository} --limit=99999 --sort-by=TIMESTAMP \
+  gcloud container images list-tags ${repository} -q --limit=99999 \
+    --sort-by=TIMESTAMP \
     --filter="timestamp.datetime < '${before_date}'" \
-    | cut -f1 -d' ' | uniq
+  | tail -n +2 | cut -f1 -d' ' | uniq
 }
 
 main(){
@@ -119,19 +121,23 @@ main(){
       >&2 echo "Maximum number of digest deletions (${max_deletions}) reached. "
       return 0
     fi
-    command="gcloud container images delete -q --force-delete-tags '${repository}@${digest}'"
+    target_image="${repository}@sha256:${digest}"
+    command="gcloud container images delete -q --force-delete-tags ${target_image}"
     if [[ -z "${dry_run}" ]]
     then
       (
         set -x
         $command
+        set +x
       )
     else
       echo "[NOT RUNNING] ${command}"
     fi
     let C=C+1
   done
-  >&2 echo "Deleted ${C} images in ${repository}"
+  local output_prefix='Deleted'
+  test -z "${dry_run}" || output_prefix="[DID NOT] ${output_prefix}"
+  >&2 echo "${output_prefix} ${C} images in ${repository}"
 }
 
 parse_args "$@" || exit $?
