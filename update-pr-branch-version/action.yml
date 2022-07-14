@@ -69,12 +69,11 @@ runs:
       shell: bash
 
 
-    - uses: EndBug/add-and-commit@v7
+    - uses: EndBug/add-and-commit@v9
       env:
         version: ${{ steps.update-version.outputs.new-version }}
       with:
         add: pyproject.toml
         default_author: github_actions
-        pull_strategy: NO-PULL
         push: ${{ steps.update-version.outputs.new-version &&  true || false }}
         message: "[Bot] Update version to ${{ env.version }}"
