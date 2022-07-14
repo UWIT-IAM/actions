@@ -28,6 +28,7 @@ runs:
         # (i.e., the default branch).
         ref: ${{ github.event.pull_request.base.ref }}
         token: ${{ env.github_token }}
+
       env:
         github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
@@ -40,6 +41,8 @@ runs:
       # on the default branch version.
       with:
         token: ${{ env.github_token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
       env:
         github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
