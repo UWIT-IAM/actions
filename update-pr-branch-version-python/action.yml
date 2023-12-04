@@ -26,6 +26,7 @@ runs:
     - name: Install poetry
       run: |
         pip install poetry
+      shell: bash
 
     - name: Checkout base project
       uses: actions/checkout@v3
