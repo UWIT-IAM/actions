@@ -18,6 +18,15 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Checkout base project
+      uses: actions/checkout@v3
+      with:
+        # Checks out the branch that PR wants to merge into
+        ref: ${{ github.event.pull_request.base.ref }}
+        token: ${{ env.github_token }}
+      env:
+        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
+
     - name: Setup Python version suitable for project
       uses: actions/setup-python@v4
       with:
@@ -27,15 +36,6 @@ runs:
       run: |
         pip install poetry
       shell: bash
-
-    - name: Checkout base project
-      uses: actions/checkout@v3
-      with:
-        # Checks out the branch that PR wants to merge into
-        ref: ${{ github.event.pull_request.base.ref }}
-        token: ${{ env.github_token }}
-      env:
-        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
     - name: Record base project version
       id: get-version
