@@ -1,0 +1,32 @@
+name: Pull request validation workflow
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - labeled
+    paths-ignore:
+      - '**.md'
+
+env:
+  GCR_TOKEN: ${{ secrets.GCR_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  STEP_SCRIPTS: ${{ github.workspace }}/.github/steps/pull-request
+
+jobs:
+  update-pr-branch-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new-version: ${{ steps.update-version.outputs.new-version }}
+    steps:
+      - uses: uwit-iam/actions/require-semver-guidance-label@0.1
+        id: guidance
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: uwit-iam/actions/update-pr-branch-version@main
+        with:
+          github-token: ${{ env.GITHUB_TOKEN }}
+          version-guidance: ${{ steps.guidance.outputs.guidance }}
+        id: update-version

@@ -10,3 +10,5 @@ There are **four necessary for Python/`poetry`** - you can see them [in the iden
 4. `semver-guidance:no-bump` - change nothing
 
 You can run `add_labels_to_repo.py` to update an existing repo to contain the labels.
+
+You can add `example-pull-request.yml` to your repo(s) `.github/workflows/` directory to utilize this.
