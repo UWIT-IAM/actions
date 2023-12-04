@@ -19,7 +19,7 @@ runs:
   using: composite
   steps:
     - name: Checkout base project
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # Checks out the branch that PR wants to merge into
         ref: ${{ github.event.pull_request.base.ref }}
@@ -43,7 +43,7 @@ runs:
       shell: bash
 
     - name: Checkout branch being Pull Requested
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         token: ${{ env.github_token }}
         repository: ${{ github.event.pull_request.head.repo.full_name }}
