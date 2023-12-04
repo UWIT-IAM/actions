@@ -8,3 +8,5 @@ There are **four necessary for Python/`poetry`** - you can see them [in the iden
 2. `semver-guidance:minor` - bump the 'y' in `x.y.z`
 3. `semver-guidance:patch` - bump the 'z' in `x.y.z`
 4. `semver-guidance:no-bump` - change nothing
+
+You can run `add_labels_to_repo.py` to update an existing repo to contain the labels.
