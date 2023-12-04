@@ -1,0 +1,87 @@
+name: Update Pull Request branch version from base branch to next logical version based on guidance.
+
+inputs:
+  version-guidance:
+    description: The argument to supply to `poetry version`
+    required: true
+  github-token:
+    description: >
+      The github token you want to use, if not already set in your
+      environment as GITHUB_TOKEN.
+    required: false
+
+outputs:
+  new-version:
+    description: The next semver version
+    value: ${{ steps.update-version.outputs.new-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python version suitable for project
+      uses: actions/setup-python@v4
+      with:
+        python-version-file: pyproject.toml
+
+    - name: Install poetry
+      run: |
+        pip install poetry
+
+    - name: Checkout base project
+      uses: actions/checkout@v3
+      with:
+        # Checks out the branch that PR wants to merge into
+        ref: ${{ github.event.pull_request.base.ref }}
+        token: ${{ env.github_token }}
+      env:
+        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
+
+    - name: Record base project version
+      id: get-version
+      run: echo ::set-output name=version::$(poetry version -s)
+      shell: bash
+
+    - name: Checkout branch being Pull Requested
+      uses: actions/checkout@v3
+      with:
+        token: ${{ env.github_token }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+      env:
+        github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
+
+    - name: Update Pull Request pyproject.toml version to base_version+guidance
+      id: update-version
+      env:
+        BASE_VERSION: ${{ steps.get-version.outputs.version }}
+      run: |
+        set -x
+        poetry version $BASE_VERSION
+        if [[ "${{ inputs.version-guidance }}" != 'no-bump' ]]
+        then
+            poetry version ${{ inputs.version-guidance }}
+        fi
+        new_version=$(poetry version -s)
+        echo ::set-output name=new-version::$new_version
+      shell: bash
+
+    - name: Inform what has happened (if anything)
+      run: >
+        echo "::notice::Applied version ${base_version} (from branch '${base_branch}') and updated it to ${new_version} using ${guidance}-level guidance."
+      env:
+        base_version: ${{ steps.get-version.outputs.version }}
+        new_version: ${{ steps.update-version.outputs.new-version }}
+        base_branch: ${{ github.event.pull_request.base.ref }}
+        guidance: ${{ inputs.version-guidance }}
+      shell: bash
+
+
+    - name: Commit updated pyproject.toml with new version description and add to Pull Request
+      uses: EndBug/add-and-commit@v9
+      env:
+        version: ${{ steps.update-version.outputs.new-version }}
+      with:
+        add: pyproject.toml
+        default_author: github_actions
+        push: ${{ steps.update-version.outputs.new-version &&  true || false }}
+        message: "[Bot] Update version to ${{ env.version }}"
