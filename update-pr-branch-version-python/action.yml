@@ -28,7 +28,7 @@ runs:
         github_token: ${{ inputs.github-token || env.GITHUB_TOKEN }}
 
     - name: Setup Python version suitable for project
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version-file: pyproject.toml
 
