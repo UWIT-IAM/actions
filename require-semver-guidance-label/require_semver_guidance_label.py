@@ -29,7 +29,7 @@ def get_pr_number(github_ref: str) -> int:
 
 
 def set_ci_output(key: str, val: Any):
-    print(f'::set-output name={key}::{val}')
+    print(f'"{key}={val}" >> $GITHUB_OUTPUT')
 
 
 if __name__ == "__main__":
