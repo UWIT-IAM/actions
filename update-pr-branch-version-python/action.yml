@@ -39,8 +39,8 @@ runs:
 
     - name: Record base project version
       id: get-version
-      run: echo ::set-output name=version::$(poetry version -s)
       shell: bash
+      run: echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
 
     - name: Checkout branch being Pull Requested
       uses: actions/checkout@v4
@@ -55,6 +55,7 @@ runs:
       id: update-version
       env:
         BASE_VERSION: ${{ steps.get-version.outputs.version }}
+      shell: bash
       run: |
         set -x
         poetry version $BASE_VERSION
@@ -63,8 +64,7 @@ runs:
             poetry version ${{ inputs.version-guidance }}
         fi
         new_version=$(poetry version -s)
-        echo ::set-output name=new-version::$new_version
-      shell: bash
+        echo "new-version=$new_version" >> $GITHUB_OUTPUT
 
     - name: Inform what has happened (if anything)
       run: >
