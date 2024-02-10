@@ -28,10 +28,6 @@ def get_pr_number(github_ref: str) -> int:
         )
 
 
-def set_ci_output(key: str, val: Any):
-    print(f'"{key}={val}" >> $GITHUB_OUTPUT')
-
-
 if __name__ == "__main__":
     args = get_parser().parse_args()
     repo = Github(args.github_token).get_repo(args.github_repository)
@@ -57,5 +53,7 @@ if __name__ == "__main__":
             "version string."
         )
 
-    set_ci_output('pr-number', pr_number)
-    set_ci_output('guidance', guidance[0])
+    output_file = os.environ.get("GITHUB_OUTPUT")
+    with open(output_file, "a") as outf:
+        print(f"pr-number={pr_number}", file=outf)
+        print(f"guidance={guidance[0]}", file=outf)
