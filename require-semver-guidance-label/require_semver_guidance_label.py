@@ -53,7 +53,6 @@ if __name__ == "__main__":
         )
 
     output_file = os.environ.get("GITHUB_OUTPUT")
-    if output_file:
-        with open(output_file, "a") as outf:
-            print(f"pr-number={pr_number}", file=outf)
-            print(f"guidance={guidance[0]}", file=outf)
+    with open(output_file, "a") as outf:
+        print(f"pr-number={pr_number}", file=outf)
+        print(f"guidance={guidance[0]}", file=outf)

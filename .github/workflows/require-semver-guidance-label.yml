@@ -29,6 +29,7 @@ jobs:
       - run: |
           docker build -t ${action_name} ./${action_name}
           docker run ${action_name} \
+            --env GITHUB_OUTPUT=/dev/null \
             --github-repository ${{ github.repository }} \
             --github-ref ${{ github.ref }} \
             --github-token ${{ secrets.GITHUB_TOKEN }}
