@@ -28,7 +28,9 @@ jobs:
       # an already-merged code.
       - run: |
           docker build -t ${action_name} ./${action_name}
-          docker run ${action_name} \
+          docker run \
+            --env GITHUB_OUTPUT=/dev/null \
+            ${action_name} \
             --github-repository ${{ github.repository }} \
             --github-ref ${{ github.ref }} \
             --github-token ${{ secrets.GITHUB_TOKEN }}

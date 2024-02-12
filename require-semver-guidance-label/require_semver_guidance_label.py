@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import re
-from typing import Any
 
 from github import Github
 from argparse import ArgumentParser
@@ -26,10 +25,6 @@ def get_pr_number(github_ref: str) -> int:
         raise ValueError(
             f'Could not determine pull request number from GITHUB_REF "{github_ref}"'
         )
-
-
-def set_ci_output(key: str, val: Any):
-    print(f'"{key}={val}" >> $GITHUB_OUTPUT')
 
 
 if __name__ == "__main__":
@@ -57,5 +52,7 @@ if __name__ == "__main__":
             "version string."
         )
 
-    set_ci_output('pr-number', pr_number)
-    set_ci_output('guidance', guidance[0])
+    output_file = os.environ.get("GITHUB_OUTPUT")
+    with open(output_file, "a") as outf:
+        print(f"pr-number={pr_number}", file=outf)
+        print(f"guidance={guidance[0]}", file=outf)
