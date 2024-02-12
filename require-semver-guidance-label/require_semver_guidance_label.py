@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import re
-from typing import Any
 
 from github import Github
 from argparse import ArgumentParser
@@ -54,6 +53,7 @@ if __name__ == "__main__":
         )
 
     output_file = os.environ.get("GITHUB_OUTPUT")
-    with open(output_file, "a") as outf:
-        print(f"pr-number={pr_number}", file=outf)
-        print(f"guidance={guidance[0]}", file=outf)
+    if output_file:
+        with open(output_file, "a") as outf:
+            print(f"pr-number={pr_number}", file=outf)
+            print(f"guidance={guidance[0]}", file=outf)
