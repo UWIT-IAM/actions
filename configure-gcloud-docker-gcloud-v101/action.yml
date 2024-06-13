@@ -24,7 +24,9 @@ runs:
       uses: 'google-github-actions/auth@v2'
       with:
         credentials_json: ${{ inputs.gcloud-token }}
-    - uses: google-github-actions/setup-gcloud@v1.0.1
+    - id: 'setup-gcloud'  # New step with your chosen ID
+      name: 'Run setup-gcloud'
+      uses: google-github-actions/setup-gcloud@v1.0.1
       # prior releases of this action used the below "with" block.
       # Leaving the block in tact but commented out as it might be useful for reference
       # with:
