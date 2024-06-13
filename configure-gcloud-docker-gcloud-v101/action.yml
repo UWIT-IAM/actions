@@ -19,7 +19,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: google-github-actions/auth@v0
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
       with:
         credentials_json: ${{ inputs.gcloud-token }}
     - uses: google-github-actions/setup-gcloud@v1.0.1
