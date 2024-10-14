@@ -20,9 +20,10 @@ runs:
   using: composite
   steps:
     - name: Python Poetry Action
+      shell: bash
       run: pipx install poetry==1.1.15
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         # Checks out the branch that PR wants to merge into,
         # (i.e., the default branch).
@@ -36,7 +37,7 @@ runs:
       id: get-version
       shell: bash
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       # Checks out the PR branch to update the version based
       # on the default branch version.
       with:
