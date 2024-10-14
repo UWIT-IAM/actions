@@ -20,7 +20,7 @@ runs:
   using: composite
   steps:
     - name: Python Poetry Action
-      uses: abatilo/actions-poetry@v2.1.6
+      run: pipx install poetry==1.1.15
 
     - uses: actions/checkout@v2
       with:
