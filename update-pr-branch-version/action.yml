@@ -21,7 +21,7 @@ runs:
   steps:
     - name: Python Poetry Action
       shell: bash
-      run: pipx install poetry==1.1.15
+      run: pipx install poetry
 
     - uses: actions/checkout@v4
       with:
